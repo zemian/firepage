@@ -1,4 +1,6 @@
 <?php
+$marknotes_version = "1.1.0";
+
 /**
  * MarkNotes is a single `index.php` page application for managing Markdown notes.
  * 
@@ -6,7 +8,6 @@
  * License: The MIT License (MIT)
  * Author: Zemian Deng
  * Date: 2020-11-04
- * Version: 1.1.0
  * 
  * Release Notes:
  * - 1.0.0 2020-10-01 First release!
@@ -90,11 +91,9 @@ function redirect($path) {
 // ### The index controller
 //
 
-// Temp Vars
-$url_path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
-
 // Page Vars
 $is_admin = isset($_GET['admin']);
+$title = $_GET['title'] ?? "MarkNotes";
 $default_ext = $_GET['default_ext'] ?? ".md";
 $default_note = $_GET['default_note'] ?? 'readme.md';
 $max_menu_levels = $_GET['max_menu_levels'] ?? 3;
@@ -253,7 +252,7 @@ if ($form_error === null) {
         <script src="https://unpkg.com/codemirror@5.58.2/mode/markdown/markdown.js"></script>
         <script src="https://unpkg.com/codemirror@5.58.2/mode/gfm/gfm.js"></script>
     <?php } ?>
-    <title>Docs</title>
+    <title><?php echo $title; ?></title>
 </head>
 <body>
 
@@ -261,7 +260,7 @@ if ($form_error === null) {
     <div class="navbar">
         <div class="navbar-brand">
             <div class="navbar-item">
-                <a class="title" href='<?php echo $controller; ?>'>MarkNotes</a>
+                <a class="title" href='<?php echo $controller; ?>'><?php echo $title; ?></a>
             </div>
         </div>
         <div class="navbar-end">
@@ -379,6 +378,13 @@ if ($form_error === null) {
     });
     editor.setSize(null, '500');
 </script>
+<?php } ?>
+
+<?php if ($is_admin) { ?>
+<div class="footer">
+    <p>This site is powered by <a href="https://github.com/zemian/marknotes">MarkNotes <?php echo $marknotes_version; ?></a></p>
+    <?php echo date('Y') . ' &copy; Zemian Deng' ?>
+</div>
 <?php } ?>
 
 </body>
