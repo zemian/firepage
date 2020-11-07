@@ -2,9 +2,6 @@
 /**
  * MarkNotes is a single `index.php` page application for viewing Markdown notes.
  * 
- * We used [parsedown](https://github.com/erusev/parsedown) to render Markdown file. This library 
- * is embedded inside the `index.php` in order to keep the goal of single page application.
- * 
  * Due to large size of this file, you may search for sections:
  * 
  * - ## Libraries
@@ -1786,6 +1783,89 @@ if (!$error) {
 // ### The index template
 //
 ?>
+<?php
+class FileService {
+    var $scan_dir;
+    var $file_ext;
+
+    function __construct($scan_dir, $file_ext) {
+        $this->scan_dir = $scan_dir;
+        $this->file_ext = $file_ext;
+    }
+
+    function get_files() {
+        $ret = [];
+        $files = scandir($this->scan_dir);
+        for ($i = 0; $i < count($files); $i++) {
+            $file = $files[$i];
+            $len = strlen($this->file_ext);
+            if (substr_compare($file, $this->file_ext, -$len) === 0) {
+                array_push($ret, $file);
+            }
+        }
+        return $ret;
+    }
+
+    function exists($file) {
+        return file_exists($this->scan_dir . "/" . $file);
+    }
+
+    function read($file) {
+        return file_get_contents($this->scan_dir . "/" . $file);
+    }
+
+    function write($file, $contents) {
+        return file_put_contents($this->scan_dir . "/" . $file, $contents);
+    }
+
+    function delete($file) {
+        return $this->exists($file) && unlink($this->scan_dir . "/" . $file);
+    }
+}
+
+// Global Vars
+$allow_admin = true;
+$action = $_GET['action'] ?? "file";
+$file_service = new FileService(__DIR__, ".md");
+
+// Process POST - Create Form
+if ($allow_admin && isset($_POST['action']) && ($_POST['action'] === 'Create' || $_POST['action'] === 'Update')) {
+    $file = $_POST['file'];
+    $file_content = $_POST['file_content'];
+    $file_service->write($file, $file_content);
+} else if ($allow_admin && $action === 'edit') {
+    // Process GET Edit Form
+    $file = $_GET['file'];
+    if ($file_service->exists($file)) {
+        $file_content = $file_service->read($file);
+    } else {
+        $file_content = "File not found: $file";
+    }
+} else if ($allow_admin && $action === 'delete-confirmed') {
+    // Process GET - DELETE file
+    $file = $_GET['file'];
+    if ($file_service->delete($file)) {
+        $delete_status = "File $file deleted";
+    } else {
+        $delete_status = "File not found: $file";
+    }
+} else {
+    // Process GET file
+    $file = $_GET['file'] ?? 'readme.md';
+}
+
+// Continue Process GET - Convert Markdown template into HTML
+// We do this even after we process a Form
+if ($file_service->exists($file)) {
+    if (!isset($file_content)) {
+        $file_content = $file_service->read($file);
+    }
+    $parsedown = new Parsedown();
+    $template_result = $parsedown->text($file_content);
+} else {
+    $template_result = "File not found: $file";
+}
+?>
 <!doctype html>
 <html lang="en">
 <head>
@@ -1794,48 +1874,90 @@ if (!$error) {
           content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <link rel="stylesheet" href="https://unpkg.com/bulma">
-    <title><?= $title ?></title>
+    <title>Docs</title>
 </head>
 <body>
-<div class="section">
-    <div class="level">
-        <div class="level-item">
-            <a href="index.php"><h1 class="title"><?= $title ?></h1></a>
-        </div>
+
+<?php if ($allow_admin && $action === 'file') { ?>
+    <div class="container is-pulled-right pr-1">
+        <a href="index.php?action=edit&file=<?= $file ?>">EDIT</a>
+        <a href="index.php?action=delete&file=<?= $file ?>">DELETE</a>
     </div>
+<?php }?>
+
+<section class="section">
     <div class="columns">
-        <div class="column is-one-third">
-            <!-- List of Directories -->
-            <div class="menu">                
-                <p class="menu-label">Directory: <?= $browse_dir; ?></p>
+        <div class="column is-3 menu">
+
+            <?php if ($allow_admin) { ?>
+                <p class="menu-label">ADMIN</p>
                 <ul class="menu-list">
-                    <?php if ($browse_dir) { ?>
-                        <li><a href="index.php?dir=<?= $parent_browse_dir ?>">..</a></li>
-                    <?php } ?>
-                    <?php foreach ($dirs as $item) { ?>
-                    <li><a href="index.php?dir=<?= "$browse_dir/$item" ?>&parent=<?= $browse_dir ?>"><?= $item ?></a></li>
-                    <?php } ?>
+                    <li><a href='index.php'>Home</a></li>
+                    <li><a href='index.php?action=new'>New</a></li>
                 </ul>
-            </div>
+            <?php } ?>
+
+            <p class="menu-label">DOCS</p>
+            <ul class="menu-list">
+                <?php
+                foreach ($file_service->get_files() as $md_file) {
+                    $is_active = ($md_file === $file) ? "is-active": "";
+                    echo "<li><a class='$is_active' href='index.php?file=$md_file'>$md_file</a></li>";
+                }
+                ?>
+            </ul>
         </div>
-        <div class="column">
-            <?php if ($error) { ?>
+        <div class="column is-9">
+            <?php if ($action === 'file') { ?>
+                <div class="content">
+                    <?= $template_result ?>
+                </div>
+            <?php } else if ($allow_admin && $action === 'new') { ?>
+                <form method="POST" action="index.php">
+                    <div class="field">
+                        <div class="label">File Name</div>
+                        <div class="control"><input class="input" type="text" name="file"></div>
+                    </div>
+                    <div class="field">
+                        <div class="label">Markdown</div>
+                        <div class="control"><textarea class="textarea" rows="20" name="file_content"></textarea></div>
+                    </div>
+                    <div class="field">
+                        <div class="control"><input class="button" type="submit" name="action" value="Create"></div>
+                    </div>
+                </form>
+            <?php } else if ($allow_admin && $action === 'edit') { ?>
+                <form method="POST" action="index.php">
+                    <div class="field">
+                        <div class="label">File Name</div>
+                        <div class="control"><input class="input" type="text" name="file" value="<?= $file ?>"></div>
+                    </div>
+                    <div class="field">
+                        <div class="label">Markdown</div>
+                        <div class="control"><textarea class="textarea" rows="20" name="file_content"><?= $file_content ?></textarea></div>
+                    </div>
+                    <div class="field">
+                        <div class="control"><input class="button" type="submit" name="action" value="Update"></div>
+                    </div>
+                </form>
+            <?php } else if ($allow_admin && $action === 'delete') { ?>
                 <div class="notification is-danger">
-                    <?= $error ?>
+                    Are you sure you want to remove <?= $file ?>?
+                </div>
+                <a class="button is-danger" href="index.php?action=delete-confirmed&file=<?= $file ?>">DELETE</a>
+                <a class="button" href="index.php?file=<?= $file ?>">Cancel</a>
+            <?php } else if ($allow_admin && $action === 'delete-confirmed') { ?>
+                <div class="notification is-success">
+                    <?= $delete_status ?>
                 </div>
             <?php } else { ?>
-                <!-- List of Files -->
-                <div class="content">
-                    <ul>
-                        <?php foreach ($files as $item) { ?>
-                            <li><a href="<?= "$browse_dir/$item" ?>"><?= $item ?></a></li>
-                        <?php } ?>
-                    </ul>
+                <div class="notification is-warning">
+                    Oops. We can not process this request!
                 </div>
             <?php } ?>
         </div>
     </div>
-</div>
+</section>
 
 </body>
 </html>
