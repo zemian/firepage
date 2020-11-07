@@ -109,7 +109,8 @@ if ($notes_dir !== 'notes') {
 }
 
 // Process POST - Create Form
-if ($is_admin && isset($_POST['action']) && ($_POST['action'] === 'new_submit' || $_POST['action'] === 'edit_submit')) {
+if ($is_admin && isset($_POST['action'])) {
+    // Process both new_submit and edit_submit
     $action = $_POST['action'];
     $file = $_POST['file'];
     $file_content = $_POST['file_content'];
