@@ -1,9 +1,9 @@
 # MarkNotes
 
-A single `index.php` page application for viewing Markdown notes.
+MarkNotes is a single `index.php` page application for viewing Markdown notes.
 
 We used [parsedown](https://github.com/erusev/parsedown) to render Markdown file. This library 
-is embeded inside the `index.php` in order to keep the goal of single page application.
+is embedded inside the `index.php` in order to keep the goal of single page application.
 
 To try it, run this:
 
