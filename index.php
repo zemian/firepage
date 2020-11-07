@@ -77,7 +77,8 @@ $is_admin = isset($_GET['admin']);
 $notes_dir = $_GET['notes_dir'] ?? '';
 $action = $_GET['action'] ?? "file";
 $file = $_GET['file'] ?? $default_note;
-$controller = 'index.php?' . ($is_admin ? 'admin=true&' : '');
+$url_path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+$controller = $url_path . '?' . ($is_admin ? 'admin=true&' : '');
 $form_error = null;
 
 // Internal Vars
