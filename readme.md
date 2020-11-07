@@ -19,6 +19,9 @@ The application supports the following URL query parameters:
 * `?notes_dir=mynotes` - Change the directory where to look for Markdown files.
 * `?file=mynote.md` - View a note file directly.
 
+NOTE: Because this is a single `index.php` application. You can easily copy it into any folder 
+in your web server that contains Markdown files!
+
 ## Design Notes
 
 We used [parsedown](https://github.com/erusev/parsedown) to render Markdown file. This library 
