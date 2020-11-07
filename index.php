@@ -127,7 +127,9 @@ if ($file_service->exists($file)) {
 <?php if ($is_admin) { ?>
     <div class="navbar">
         <div class="navbar-brand">
-            <div class="navbar-item"><p class="title">MarkNotes - Admin</p></div>
+            <div class="navbar-item">
+                <a class="title" href='<?php echo $controller; ?>'>MarkNotes</a>
+            </div>
         </div>
         <div class="navbar-end">
             <?php if ($action === 'file') { ?>
@@ -147,9 +149,8 @@ if ($file_service->exists($file)) {
         <div class="column is-3 menu">
 
             <?php if ($is_admin) { ?>
-                <p class="menu-label">Actions</p>
+                <p class="menu-label">Admin</p>
                 <ul class="menu-list">
-                    <li><a href='<?php echo $controller; ?>'>Admin</a></li>
                     <li><a href='<?php echo $controller; ?>action=new'>New</a></li>
                     <li><a href='index.php'>Exit</a></li>
                 </ul>
@@ -205,18 +206,28 @@ if ($file_service->exists($file)) {
                     </div>
                 </form>
             <?php } else if ($is_admin && $action === 'delete') { ?>
-                <div class="notification is-danger">
-                    Are you sure you want to remove <?= $file ?>?
+                <div class="message is-danger">
+                    <div class="message-header">Delete Confirmation</div>
+                    <div class="message-body">
+                        <p class="block">Are you sure you want to delete <b><?= $file ?></b>?</p>
+
+                        <a class="button is-info" href="<?php echo $controller; ?>action=delete-confirmed&file=<?= $file ?>">Delete</a>
+                        <a class="button" href="<?php echo $controller; ?>file=<?= $file ?>">Cancel</a>
+                    </div>
                 </div>
-                <a class="button is-danger" href="<?php echo $controller; ?>action=delete-confirmed&file=<?= $file ?>">DELETE</a>
-                <a class="button" href="<?php echo $controller; ?>file=<?= $file ?>">Cancel</a>
             <?php } else if ($is_admin && $action === 'delete-confirmed') { ?>
-                <div class="notification is-success">
-                    <?= $delete_status ?>
+                <div class="message is-success">
+                    <div class="message-header">Deleted!</div>
+                    <div class="message-body">
+                        <p class="block"><?php echo $delete_status; ?></p>
+                    </div>
                 </div>
             <?php } else { ?>
-                <div class="notification is-warning">
-                    Oops. We can not process this request!
+                <div class="message is-warning">
+                    <div class="message-header">Oops!</div>
+                    <div class="message-body">
+                        <p class="block">We can not process this request!</p>
+                    </div>
                 </div>
             <?php } ?>
         </div>
