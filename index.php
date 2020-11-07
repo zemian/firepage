@@ -124,10 +124,21 @@ if ($file_service->exists($file)) {
 </head>
 <body>
 
-<?php if ($is_admin && $action === 'file') { ?>
-    <div class="container is-pulled-right pr-1">
-        <a href="<?php echo $controller; ?>action=edit&file=<?= $file ?>">EDIT</a>
-        <a href="<?php echo $controller; ?>action=delete&file=<?= $file ?>">DELETE</a>
+<?php if ($is_admin) { ?>
+    <div class="navbar">
+        <div class="navbar-brand">
+            <div class="navbar-item"><p class="title">MarkNotes - Admin</p></div>
+        </div>
+        <div class="navbar-end">
+            <?php if ($action === 'file') { ?>
+            <div class="navbar-item">
+                <a href="<?php echo $controller; ?>action=edit&file=<?= $file ?>">EDIT</a>
+            </div>
+            <div class="navbar-item">
+                <a href="<?php echo $controller; ?>action=delete&file=<?= $file ?>">DELETE</a>
+            </div>
+            <?php } ?>
+        </div>
     </div>
 <?php }?>
 
