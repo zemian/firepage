@@ -57,16 +57,18 @@ class FileService {
 //
 
 // Global Vars
-$allow_admin = true;
+$is_admin = isset($_GET['admin']);
+$notes_dir = 'notes';
 $action = $_GET['action'] ?? "file";
-$file_service = new FileService(__DIR__, ".md");
+$file_service = new FileService($notes_dir, ".md");
+$controller = 'index.php?' . ($is_admin ? 'admin=true&' : '');
 
 // Process POST - Create Form
-if ($allow_admin && isset($_POST['action']) && ($_POST['action'] === 'Create' || $_POST['action'] === 'Update')) {
+if ($is_admin && isset($_POST['action']) && ($_POST['action'] === 'Create' || $_POST['action'] === 'Update')) {
     $file = $_POST['file'];
     $file_content = $_POST['file_content'];
     $file_service->write($file, $file_content);
-} else if ($allow_admin && $action === 'edit') {
+} else if ($is_admin && $action === 'edit') {
     // Process GET Edit Form
     $file = $_GET['file'];
     if ($file_service->exists($file)) {
@@ -74,7 +76,7 @@ if ($allow_admin && isset($_POST['action']) && ($_POST['action'] === 'Create' ||
     } else {
         $file_content = "File not found: $file";
     }
-} else if ($allow_admin && $action === 'delete-confirmed') {
+} else if ($is_admin && $action === 'delete-confirmed') {
     // Process GET - DELETE file
     $file = $_GET['file'];
     if ($file_service->delete($file)) {
@@ -117,10 +119,10 @@ if ($file_service->exists($file)) {
 </head>
 <body>
 
-<?php if ($allow_admin && $action === 'file') { ?>
+<?php if ($is_admin && $action === 'file') { ?>
     <div class="container is-pulled-right pr-1">
-        <a href="index.php?action=edit&file=<?= $file ?>">EDIT</a>
-        <a href="index.php?action=delete&file=<?= $file ?>">DELETE</a>
+        <a href="<?php echo $controller; ?>action=edit&file=<?= $file ?>">EDIT</a>
+        <a href="<?php echo $controller; ?>action=delete&file=<?= $file ?>">DELETE</a>
     </div>
 <?php }?>
 
@@ -128,20 +130,20 @@ if ($file_service->exists($file)) {
     <div class="columns">
         <div class="column is-3 menu">
 
-            <?php if ($allow_admin) { ?>
-                <p class="menu-label">ADMIN</p>
+            <?php if ($is_admin) { ?>
+                <p class="menu-label">Actions</p>
                 <ul class="menu-list">
-                    <li><a href='index.php'>Home</a></li>
-                    <li><a href='index.php?action=new'>New</a></li>
+                    <li><a href='<?php echo $controller; ?>'>Home</a></li>
+                    <li><a href='<?php echo $controller; ?>action=new'>New</a></li>
                 </ul>
             <?php } ?>
 
-            <p class="menu-label">DOCS</p>
+            <p class="menu-label">Notes</p>
             <ul class="menu-list">
                 <?php
                 foreach ($file_service->get_files() as $md_file) {
                     $is_active = ($md_file === $file) ? "is-active": "";
-                    echo "<li><a class='$is_active' href='index.php?file=$md_file'>$md_file</a></li>";
+                    echo "<li><a class='$is_active' href='{$controller}file=$md_file'>$md_file</a></li>";
                 }
                 ?>
             </ul>
@@ -151,7 +153,7 @@ if ($file_service->exists($file)) {
                 <div class="content">
                     <?= $template_result ?>
                 </div>
-            <?php } else if ($allow_admin && $action === 'new') { ?>
+            <?php } else if ($is_admin && $action === 'new') { ?>
                 <form method="POST" action="index.php">
                     <div class="field">
                         <div class="label">File Name</div>
@@ -165,7 +167,7 @@ if ($file_service->exists($file)) {
                         <div class="control"><input class="button" type="submit" name="action" value="Create"></div>
                     </div>
                 </form>
-            <?php } else if ($allow_admin && $action === 'edit') { ?>
+            <?php } else if ($is_admin && $action === 'edit') { ?>
                 <form method="POST" action="index.php">
                     <div class="field">
                         <div class="label">File Name</div>
@@ -179,13 +181,13 @@ if ($file_service->exists($file)) {
                         <div class="control"><input class="button" type="submit" name="action" value="Update"></div>
                     </div>
                 </form>
-            <?php } else if ($allow_admin && $action === 'delete') { ?>
+            <?php } else if ($is_admin && $action === 'delete') { ?>
                 <div class="notification is-danger">
                     Are you sure you want to remove <?= $file ?>?
                 </div>
-                <a class="button is-danger" href="index.php?action=delete-confirmed&file=<?= $file ?>">DELETE</a>
-                <a class="button" href="index.php?file=<?= $file ?>">Cancel</a>
-            <?php } else if ($allow_admin && $action === 'delete-confirmed') { ?>
+                <a class="button is-danger" href="<?php echo $controller; ?>action=delete-confirmed&file=<?= $file ?>">DELETE</a>
+                <a class="button" href="<?php echo $controller; ?>file=<?= $file ?>">Cancel</a>
+            <?php } else if ($is_admin && $action === 'delete-confirmed') { ?>
                 <div class="notification is-success">
                     <?= $delete_status ?>
                 </div>
