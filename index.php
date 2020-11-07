@@ -174,6 +174,18 @@ if ($form_error === null) {
           content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <link rel="stylesheet" href="https://unpkg.com/bulma">
+
+    <?php if ($action === 'new' || $action === 'edit') { ?>
+        <link rel="stylesheet" href="https://unpkg.com/codemirror@5.58.2/lib/codemirror.css">
+        <script src="https://unpkg.com/codemirror@5.58.2/lib/codemirror.js"></script>
+        <script src="https://unpkg.com/codemirror@5.58.2/addon/mode/overlay.js"></script>
+        <script src="https://unpkg.com/codemirror@5.58.2/mode/javascript/javascript.js"></script>
+        <script src="https://unpkg.com/codemirror@5.58.2/mode/css/css.js"></script>
+        <script src="https://unpkg.com/codemirror@5.58.2/mode/xml/xml.js"></script>
+        <script src="https://unpkg.com/codemirror@5.58.2/mode/htmlmixed/htmlmixed.js"></script>
+        <script src="https://unpkg.com/codemirror@5.58.2/mode/markdown/markdown.js"></script>
+        <script src="https://unpkg.com/codemirror@5.58.2/mode/gfm/gfm.js"></script>
+    <?php } ?>
     <title>Docs</title>
 </head>
 <body>
@@ -242,7 +254,7 @@ if ($form_error === null) {
                     </div>
                     <div class="field">
                         <div class="label">Markdown</div>
-                        <div class="control"><textarea class="textarea" rows="20" name="file_content"><?php echo $file_content ?></textarea></div>
+                        <div class="control"><textarea id='file_content' class="textarea" rows="20" name="file_content"><?php echo $file_content ?></textarea></div>
                     </div>
                     <div class="field">
                         <div class="control">
@@ -260,7 +272,7 @@ if ($form_error === null) {
                     </div>
                     <div class="field">
                         <div class="label">Markdown</div>
-                        <div class="control"><textarea class="textarea" rows="20" name="file_content"><?= $file_content ?></textarea></div>
+                        <div class="control"><textarea id='file_content' class="textarea" rows="20" name="file_content"><?= $file_content ?></textarea></div>
                     </div>
                     <div class="field">
                         <div class="control">
@@ -297,6 +309,18 @@ if ($form_error === null) {
         </div>
     </div>
 </section>
+
+
+<?php if ($action === 'new' || $action === 'edit') { ?>
+    <script>
+        var editor = CodeMirror.fromTextArea(document.getElementById('file_content'), {
+            lineNumbers: true,
+            mode: 'gfm',
+            theme: 'default',
+        });
+        editor.setSize(null, '500');
+    </script>
+<?php } ?>
 
 </body>
 </html>

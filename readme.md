@@ -26,3 +26,7 @@ is embedded inside the `index.php` in order to keep the goal of single page appl
 
 For styling we use [Bulma CSS](https://unpkg.com/bulma). If you don't want to have to have external internet
 access at all, then simply download it and replace the `<link>` element in the `index.php` file.
+
+We also use [CodeMirror](https://unpkg.com/codemirror) to enhance Editor and syntax highlight. Again, 
+this will access external internet. But even if it's not able to load, the fall back HTML textarea will work
+just fine.
