@@ -2,12 +2,17 @@
 
 MarkNotes is a single `index.php` page application for managing Markdown notes.
 
+Project Owner: Zemian Deng
+
+## Getting Started 
+
 To try it, run this:
 
 	php -S localhost:3000
 	open http://localhost:3000
 
-Project Owner: Zemian Deng
+By default the server will serve a directory named `notes` for all `*.md` files. You may add `?admin` 
+URL query parameter to enter into Admin mode to manage the note files.
 
 ## Design Notes
 
