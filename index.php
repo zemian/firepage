@@ -58,10 +58,15 @@ class FileService {
 
 // Global Vars
 $is_admin = isset($_GET['admin']);
-$notes_dir = 'notes';
+$notes_dir = $_GET['notes_dir'] ?? 'notes';
 $action = $_GET['action'] ?? "file";
 $file_service = new FileService($notes_dir, ".md");
 $controller = 'index.php?' . ($is_admin ? 'admin=true&' : '');
+
+// If notes dir is not default, ensure we retain it on next request.
+if ($notes_dir !== 'notes') {
+    $controller .= "notes_dir={$notes_dir}&";
+}
 
 // Process POST - Create Form
 if ($is_admin && isset($_POST['action']) && ($_POST['action'] === 'Create' || $_POST['action'] === 'Update')) {
@@ -139,7 +144,7 @@ if ($file_service->exists($file)) {
                 </ul>
             <?php } ?>
 
-            <p class="menu-label">Notes</p>
+            <p class="menu-label"><?php echo $notes_dir ?></p>
             <ul class="menu-list">
                 <?php
                 foreach ($file_service->get_files() as $md_file) {
