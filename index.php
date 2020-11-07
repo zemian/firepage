@@ -181,7 +181,10 @@ if ($file_service->exists($file)) {
                         <div class="control"><textarea class="textarea" rows="20" name="file_content"></textarea></div>
                     </div>
                     <div class="field">
-                        <div class="control"><input class="button" type="submit" name="action" value="Create"></div>
+                        <div class="control">
+                            <input class="button is-info" type="submit" name="action" value="Create">
+                            <a class="button" href="<?php echo $controller; ?>">Cancel</a>
+                        </div>
                     </div>
                 </form>
             <?php } else if ($is_admin && $action === 'edit') { ?>
@@ -195,7 +198,10 @@ if ($file_service->exists($file)) {
                         <div class="control"><textarea class="textarea" rows="20" name="file_content"><?= $file_content ?></textarea></div>
                     </div>
                     <div class="field">
-                        <div class="control"><input class="button" type="submit" name="action" value="Update"></div>
+                        <div class="control">
+                            <input class="button is-info" type="submit" name="action" value="Update">
+                            <a class="button" href="<?php echo $controller; ?>file=<?= $file ?>">Cancel</a>
+                        </div>
                     </div>
                 </form>
             <?php } else if ($is_admin && $action === 'delete') { ?>
