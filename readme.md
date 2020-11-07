@@ -1,4 +1,4 @@
-# MarkNotes
+# Welcome to MarkNotes
 
 MarkNotes is a single `index.php` page application for managing Markdown notes.
 
@@ -6,6 +6,8 @@ MarkNotes is a single `index.php` page application for managing Markdown notes.
  * License: The MIT License (MIT)
  * Author: Zemian Deng
  * Date: 2020-11-04
+
+Go to [Admin](index.php?admin) mode to manage them!
 
 ## Getting Started 
 

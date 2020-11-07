@@ -6,6 +6,7 @@
  * License: The MIT License (MIT)
  * Author: Zemian Deng
  * Date: 2020-11-04
+ * Version: 1.0.0
  */
 
 //
@@ -20,6 +21,9 @@ class FileService {
     var $file_ext;
 
     function __construct($scan_dir, $file_ext) {
+        if ($scan_dir === '') {
+            $scan_dir = './';
+        }
         $this->scan_dir = $scan_dir;
         $this->file_ext = $file_ext;
     }
@@ -63,11 +67,14 @@ function redirect($path) {
 // ### The index controller
 //
 
+// Temp Vars
+$url_path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+
 // Page Vars
 $default_ext = ".md";
 $default_note = 'readme.md';
 $is_admin = isset($_GET['admin']);
-$notes_dir = $_GET['notes_dir'] ?? 'notes';
+$notes_dir = $_GET['notes_dir'] ?? '';
 $action = $_GET['action'] ?? "file";
 $file = $_GET['file'] ?? $default_note;
 $controller = 'index.php?' . ($is_admin ? 'admin=true&' : '');
