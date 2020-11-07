@@ -62,6 +62,7 @@ function redirect($path) {
 //
 
 // Page Vars
+$default_ext = ".md";
 $default_note = 'readme.md';
 $is_admin = isset($_GET['admin']);
 $notes_dir = $_GET['notes_dir'] ?? 'notes';
@@ -71,18 +72,18 @@ $controller = 'index.php?' . ($is_admin ? 'admin=true&' : '');
 $form_error = null;
 
 // Internal Vars
-$file_service = new FileService($notes_dir, ".md");
+$file_service = new FileService($notes_dir, $default_ext);
 
 // Support functions
-function validate_note_name($file_service, $name, $is_exists_check = true) {
+function validate_note_name($file_service, $name, $is_exists_check = true, $ext = '.md') {
     $error = 'Invalid name: ';
     $n = strlen($name);
     if (!($n > 0 && $n < 100)) {
         $error .= 'Must not be empty and less than 100 chars.';
     } else if (!preg_match('/^[\w_\-\.]+$/', $name)) {
         $error .= "Must use alphabetic, numbers, '_', '-' characters only.";
-    } else if (!preg_match('/.md$/', $name)) {
-        $error .= "Must have .md extension.";
+    } else if (!preg_match('/' . $ext . '$/', $name)) {
+        $error .= "Must have $ext extension.";
     } else if ($is_exists_check && $file_service->exists($name)) {
         $error .= "File already exists.";
     } else {
@@ -116,7 +117,7 @@ if ($is_admin && isset($_POST['action'])) {
     $file_content = $_POST['file_content'];
     if ($form_error === null) {
         $is_exists_check = $action === 'new_submit';
-        $form_error = validate_note_name($file_service, $file, $is_exists_check);
+        $form_error = validate_note_name($file_service, $file, $is_exists_check, $default_ext);
     }
     if ($form_error === null) {
         $form_error = validate_note_content($file, $file_content);
