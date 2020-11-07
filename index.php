@@ -52,27 +52,81 @@ class FileService {
     }
 }
 
+function redirect($path) {
+    header("Location: $path");
+    exit();
+}
+
 //
 // ### The index controller
 //
 
-// Global Vars
+// Page Vars
+$default_note = 'readme.md';
 $is_admin = isset($_GET['admin']);
 $notes_dir = $_GET['notes_dir'] ?? 'notes';
 $action = $_GET['action'] ?? "file";
-$file_service = new FileService($notes_dir, ".md");
+$file = $_GET['file'] ?? $default_note;
 $controller = 'index.php?' . ($is_admin ? 'admin=true&' : '');
+$form_error = null;
 
+// Internal Vars
+$file_service = new FileService($notes_dir, ".md");
+
+// support functions
+function validate_note_name($file_service, $name, $is_exists_check = true) {
+    $error = 'Invalid name: ';
+    $n = strlen($name);
+    if (!($n > 0 && $n < 100)) {
+        $error .= 'Must not be empty and less than 100 chars.';
+    } else if (!preg_match('/^[\w_\-\.]+$/', $name)) {
+        $error .= "Must use alphabetic, numbers, '_', '-' characters only.";
+    } else if (!preg_match('/.md$/', $name)) {
+        $error .= "Must have .md extension.";
+    } else if ($is_exists_check && $file_service->exists($name)) {
+        $error .= "File already exists.";
+    } else {
+        $error = null;
+    }
+    return $error;
+}
+
+function validate_note_content($content) {
+    $error = 'Invalid note content: ';
+    $n = strlen($content);
+    if (!($n < 1024 * 1024 * 10)) {
+        $error .= 'Must be less than 10MB.';
+    } else {
+        $error = null;
+    }
+    return $error;
+}
+
+// Process Request
 // If notes dir is not default, ensure we retain it on next request.
 if ($notes_dir !== 'notes') {
     $controller .= "notes_dir={$notes_dir}&";
 }
 
 // Process POST - Create Form
-if ($is_admin && isset($_POST['action']) && ($_POST['action'] === 'Create' || $_POST['action'] === 'Update')) {
+if ($is_admin && isset($_POST['action']) && ($_POST['action'] === 'new_submit' || $_POST['action'] === 'edit_submit')) {
+    $action = $_POST['action'];
     $file = $_POST['file'];
     $file_content = $_POST['file_content'];
-    $file_service->write($file, $file_content);
+    if ($form_error === null) {
+        $is_exists_check = $action === 'new_submit';
+        $form_error = validate_note_name($file_service, $file, $is_exists_check);
+    }
+    if ($form_error === null) {
+        $form_error = validate_note_content($file, $file_content);
+    }
+    if ($form_error === null) {
+        $file_service->write($file, $file_content);
+        redirect($controller . "file=$file");
+    }
+} else if ($is_admin && $action === 'new') {
+    $file = '';
+    $file_content = '';
 } else if ($is_admin && $action === 'edit') {
     // Process GET Edit Form
     $file = $_GET['file'];
@@ -89,21 +143,20 @@ if ($is_admin && isset($_POST['action']) && ($_POST['action'] === 'Create' || $_
     } else {
         $delete_status = "File not found: $file";
     }
-} else {
-    // Process GET file
-    $file = $_GET['file'] ?? 'readme.md';
 }
 
 // Continue Process GET - Convert Markdown template into HTML
 // We do this even after we process a Form
-if ($file_service->exists($file)) {
-    if (!isset($file_content)) {
-        $file_content = $file_service->read($file);
+if ($form_error === null) {
+    if ($action === 'file' && $file_service->exists($file)) {
+        if (!isset($file_content)) {
+            $file_content = $file_service->read($file);
+        }
+        $parsedown = new Parsedown();
+        $file_content_formatted = $parsedown->text($file_content);
+    } else {
+        $file_content_formatted = "File not found: $file";
     }
-    $parsedown = new Parsedown();
-    $template_result = $parsedown->text($file_content);
-} else {
-    $template_result = "File not found: $file";
 }
 ?>
 
@@ -147,7 +200,6 @@ if ($file_service->exists($file)) {
 <section class="section">
     <div class="columns">
         <div class="column is-3 menu">
-
             <?php if ($is_admin) { ?>
                 <p class="menu-label">Admin</p>
                 <ul class="menu-list">
@@ -159,9 +211,9 @@ if ($file_service->exists($file)) {
             <p class="menu-label"><?php echo $notes_dir ?></p>
             <ul class="menu-list">
                 <?php
-                foreach ($file_service->get_files() as $md_file) {
-                    $is_active = ($md_file === $file) ? "is-active": "";
-                    echo "<li><a class='$is_active' href='{$controller}file=$md_file'>$md_file</a></li>";
+                foreach ($file_service->get_files() as $item) {
+                    $is_active = ($item === $file) ? "is-active": "";
+                    echo "<li><a class='$is_active' href='{$controller}file=$item'>$item</a></li>";
                 }
                 ?>
             </ul>
@@ -169,27 +221,38 @@ if ($file_service->exists($file)) {
         <div class="column is-9">
             <?php if ($action === 'file') { ?>
                 <div class="content">
-                    <?= $template_result ?>
+                    <?php 
+                    if ($file_content_formatted === '') {
+                        echo "<i>This note is empty!</i>";    
+                    } else {
+                        echo $file_content_formatted;
+                    }
+                    ?>
                 </div>
-            <?php } else if ($is_admin && $action === 'new') { ?>
-                <form method="POST" action="index.php">
+            <?php } else if ($is_admin && ($action === 'new' || $action === 'new_submit')) { ?>
+                <?php if ($form_error !== null) { ?>
+                    <div class="notification is-danger"><?php echo $form_error; ?></div>
+                <?php } ?>
+                <form method="POST" action="<?php echo $controller; ?>">
+                    <input type="hidden" name="action" value="new_submit">
                     <div class="field">
                         <div class="label">File Name</div>
-                        <div class="control"><input class="input" type="text" name="file"></div>
+                        <div class="control"><input class="input" type="text" name="file" value="<?php echo $file ?>"></div>
                     </div>
                     <div class="field">
                         <div class="label">Markdown</div>
-                        <div class="control"><textarea class="textarea" rows="20" name="file_content"></textarea></div>
+                        <div class="control"><textarea class="textarea" rows="20" name="file_content"><?php echo $file_content ?></textarea></div>
                     </div>
                     <div class="field">
                         <div class="control">
-                            <input class="button is-info" type="submit" name="action" value="Create">
+                            <input class="button is-info" type="submit" name="submit" value="Create">
                             <a class="button" href="<?php echo $controller; ?>">Cancel</a>
                         </div>
                     </div>
                 </form>
-            <?php } else if ($is_admin && $action === 'edit') { ?>
-                <form method="POST" action="index.php">
+            <?php } else if ($is_admin && ($action === 'edit' && $action === 'edit_submit')) { ?>
+                <form method="POST" action="<?php echo $controller; ?>">
+                    <input type="hidden" name="action" value="edit_submit">
                     <div class="field">
                         <div class="label">File Name</div>
                         <div class="control"><input class="input" type="text" name="file" value="<?= $file ?>"></div>
@@ -200,7 +263,7 @@ if ($file_service->exists($file)) {
                     </div>
                     <div class="field">
                         <div class="control">
-                            <input class="button is-info" type="submit" name="action" value="Update">
+                            <input class="button is-info" type="submit" name="submit" value="Update">
                             <a class="button" href="<?php echo $controller; ?>file=<?= $file ?>">Cancel</a>
                         </div>
                     </div>
