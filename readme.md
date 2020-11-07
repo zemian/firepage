@@ -11,8 +11,13 @@ To try it, run this:
 	php -S localhost:3000
 	open http://localhost:3000
 
-By default the server will serve a directory named `notes` for all `*.md` files. You may add `?admin` 
-URL query parameter to enter into Admin mode to manage the note files.
+By default the server will serve a directory named `notes` for all `*.md` files. 
+
+The application supports the following URL query parameters:
+
+* `?admin` - Go into Admin mode to manage the note files.
+* `?notes_dir=mynotes` - Change the directory where to look for Markdown files.
+* `?file=mynote.md` - View a note file directly.
 
 ## Design Notes
 
