@@ -9,7 +9,17 @@ MarkNotes is a single `index.php` page application for managing Markdown notes.
 
 Go to [Admin](index.php?admin) mode to manage them!
 
-## Getting Started 
+## Features
+
+* Single file `index.php` application.
+* Easy copy and deploy `index.php` to any web folder.
+* Clean and simple UI style with Markdown editing syntax highlight.
+* Display all Markdown files with `readme.md` as default page.
+* Support sub folders browsing up to 3 levels.
+* Web based Admin interface to manage Markdown files.
+* Secure - never serve files outside where `index.php` is.
+
+## Getting Started
 
 To try it, run this:
 
@@ -23,9 +33,6 @@ The application supports the following URL query parameters:
 * `?admin` - Go into Admin mode to manage the note files.
 * `?notes_dir=mynotes` - Change the directory where to look for Markdown files.
 * `?file=mynote.md` - View a note file directly.
-
-NOTE: Because this is a single `index.php` application. You can easily copy it into any folder 
-in your web server that contains Markdown files!
 
 ## Design Notes
 
