@@ -250,7 +250,7 @@ if ($form_error === null) {
                         </div>
                     </div>
                 </form>
-            <?php } else if ($is_admin && ($action === 'edit' && $action === 'edit_submit')) { ?>
+            <?php } else if ($is_admin && ($action === 'edit' || $action === 'edit_submit')) { ?>
                 <form method="POST" action="<?php echo $controller; ?>">
                     <input type="hidden" name="action" value="edit_submit">
                     <div class="field">
@@ -289,7 +289,7 @@ if ($form_error === null) {
                 <div class="message is-warning">
                     <div class="message-header">Oops!</div>
                     <div class="message-body">
-                        <p class="block">We can not process this request!</p>
+                        <p class="block">We can not process this action: <?php echo $action ; ?></p>
                     </div>
                 </div>
             <?php } ?>
