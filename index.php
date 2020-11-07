@@ -6,7 +6,11 @@
  * License: The MIT License (MIT)
  * Author: Zemian Deng
  * Date: 2020-11-04
- * Version: 1.0.0
+ * Version: 1.1.0
+ * 
+ * Release Notes:
+ * - 1.0.0 2020-10-01 First release!
+ * - 1.1.0 2020-11-07 Add nested folders browsing
  */
 
 //
@@ -17,44 +21,63 @@
 // ### The services
 // 
 class FileService {
-    var $scan_dir;
-    var $file_ext;
+    var $root_dir; // Root of the directory to work with. All relative paths should base from this.
+    var $file_ext; // We only will work with this file extension
 
     function __construct($scan_dir, $file_ext) {
-        if ($scan_dir === '') {
-            $scan_dir = './';
-        }
-        $this->scan_dir = $scan_dir;
+        $this->root_dir = $scan_dir;
         $this->file_ext = $file_ext;
     }
 
-    function get_files() {
+    function get_files($sub_path = '') {
         $ret = [];
-        $files = scandir($this->scan_dir);
-        for ($i = 0; $i < count($files); $i++) {
-            $file = $files[$i];
-            $len = strlen($this->file_ext);
-            if (substr_compare($file, $this->file_ext, -$len) === 0) {
-                array_push($ret, $file);
+        $dir = $this->root_dir . ($sub_path ? "/$sub_path" : '');
+        $files = array_slice(scandir($dir), 2);
+        foreach ($files as $file) {
+            if (is_file("$dir/$file")) {
+                $len = strlen($this->file_ext);
+                if (substr_compare($file, $this->file_ext, -$len) === 0) {
+                    array_push($ret, $file);
+                }
+            }
+        }
+        return $ret;
+    }
+
+    function get_dirs($sub_path = '') {
+        $ret = [];
+        $dir = $this->root_dir . ($sub_path ? "/$sub_path" : '');
+        $files = array_slice(scandir($dir), 2);
+        foreach ($files as $file) {
+            if (is_dir("$dir/$file")) {
+                // Do not include hidden dot folders
+                if (substr_compare($file, '.', 0, 1) !== 0) {
+                    array_push($ret, $file);
+                }
             }
         }
         return $ret;
     }
 
     function exists($file) {
-        return file_exists($this->scan_dir . "/" . $file);
+        return file_exists($this->root_dir . "/" . $file);
     }
 
     function read($file) {
-        return file_get_contents($this->scan_dir . "/" . $file);
+        return file_get_contents($this->root_dir . "/" . $file);
     }
 
     function write($file, $contents) {
-        return file_put_contents($this->scan_dir . "/" . $file, $contents);
+        $file_path = $this->root_dir . "/" . $file;
+        $dir_path = pathinfo($file_path, PATHINFO_DIRNAME);
+        if (!is_dir($dir_path)) {
+            mkdir($dir_path, 0777, true);
+        }
+        return file_put_contents($file_path, $contents);
     }
 
     function delete($file) {
-        return $this->exists($file) && unlink($this->scan_dir . "/" . $file);
+        return $this->exists($file) && unlink($this->root_dir . "/" . $file);
     }
 }
 
@@ -71,9 +94,10 @@ function redirect($path) {
 $url_path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 
 // Page Vars
-$default_ext = ".md";
-$default_note = 'readme.md';
 $is_admin = isset($_GET['admin']);
+$default_ext = $_GET['default_ext'] ?? ".md";
+$default_note = $_GET['default_note'] ?? 'readme.md';
+$max_menu_levels = $_GET['max_menu_levels'] ?? 3;
 $notes_dir = $_GET['notes_dir'] ?? '';
 $action = $_GET['action'] ?? "file";
 $file = $_GET['file'] ?? $default_note;
@@ -82,20 +106,23 @@ $controller = $url_path . '?' . ($is_admin ? 'admin=true&' : '');
 $form_error = null;
 
 // Internal Vars
-$file_service = new FileService($notes_dir, $default_ext);
+// NOTE: File service should never browse outside of where this index.php located for security purpose.
+$file_service = new FileService(__DIR__ . ($notes_dir ? "/$notes_dir"  : ''), $default_ext);
 
 // Support functions
-function validate_note_name($file_service, $name, $is_exists_check = true, $ext = '.md') {
+function validate_note_name($file_service, $name, $is_exists_check, $ext, $max_depth) {
     $error = 'Invalid name: ';
     $n = strlen($name);
-    if (!($n > 0 && $n < 100)) {
+    if (!($n > 0 && $n < 30 * $max_depth)) {
         $error .= 'Must not be empty and less than 100 chars.';
-    } else if (!preg_match('/^[\w_\-\.]+$/', $name)) {
+    } else if (!preg_match('/^[\w_\-\.\/]+$/', $name)) {
         $error .= "Must use alphabetic, numbers, '_', '-' characters only.";
     } else if (!preg_match('/' . $ext . '$/', $name)) {
         $error .= "Must have $ext extension.";
     } else if ($is_exists_check && $file_service->exists($name)) {
         $error .= "File already exists.";
+    } else if (substr_count($name, '/') > $max_depth) {
+        $error .= "File nested path be less than $max_depth levels.";
     } else {
         $error = null;
     }
@@ -113,6 +140,35 @@ function validate_note_content($content) {
     return $error;
 }
 
+function echo_menu_links($max_levels, $notes_dir, $active_file, $file_service, $controller) {
+    $base_name = basename($notes_dir);
+    echo "<p class='menu-label'>$base_name</p>";
+    echo "<ul class='menu-list'>";
+
+    $files = $file_service->get_files($notes_dir);
+    $i = 0; // Use to track last item in loop
+    $files_len = count($files);
+    foreach ($files as $item) {
+        $path_name = $notes_dir ? "$notes_dir/$item" : $item;
+        $is_active = ($path_name === $active_file) ? "is-active": "";
+        echo "<li><a class='$is_active' href='{$controller}file=$path_name'>$item</a>";
+        if ($i++ < ($files_len - 1)) {
+            echo "</li>"; // We close all <li> except last one so Bulma memu list can be nested
+        }
+    }
+    
+    if ($max_levels > 0) {
+        $dirs = $file_service->get_dirs($notes_dir);
+        foreach ($dirs as $item) {
+            $path_name = $notes_dir ? "$notes_dir/$item" : $item;
+            echo_menu_links($max_levels - 1, $path_name, $active_file, $file_service, $controller);
+        }
+    }
+    
+    echo "</li>"; // Last menu item
+    echo "</ul>";
+}
+
 // Process Request
 
 // - If notes dir is not default, ensure we retain it on next request.
@@ -127,7 +183,7 @@ if ($is_admin && isset($_POST['action'])) {
     $file_content = $_POST['file_content'];
     if ($form_error === null) {
         $is_exists_check = $action === 'new_submit';
-        $form_error = validate_note_name($file_service, $file, $is_exists_check, $default_ext);
+        $form_error = validate_note_name($file_service, $file, $is_exists_check, $default_ext, $max_menu_levels);
     }
     if ($form_error === null) {
         $form_error = validate_note_content($file, $file_content);
@@ -158,7 +214,9 @@ if ($is_admin && isset($_POST['action'])) {
 }
 
 if ($form_error === null) {
-    if ($action === 'file' && $file_service->exists($file)) {
+    if ($action === 'file' &&
+        $file_service->exists($file) &&
+        validate_note_name($file_service, $file, false, $default_ext, $max_menu_levels) === null) {
         if (!isset($file_content)) {
             $file_content = $file_service->read($file);
         }
@@ -226,19 +284,11 @@ if ($form_error === null) {
                 <p class="menu-label">Admin</p>
                 <ul class="menu-list">
                     <li><a href='<?php echo $controller; ?>action=new'>New</a></li>
-                    <li><a href='index.php'>Exit</a></li>
+                    <li><a href='<?php echo $url_path; ?>'>Exit</a></li>
                 </ul>
             <?php } ?>
-
-            <p class="menu-label"><?php echo $notes_dir ?></p>
-            <ul class="menu-list">
-                <?php
-                foreach ($file_service->get_files() as $item) {
-                    $is_active = ($item === $file) ? "is-active": "";
-                    echo "<li><a class='$is_active' href='{$controller}file=$item'>$item</a></li>";
-                }
-                ?>
-            </ul>
+            
+            <?php echo_menu_links($max_menu_levels, $notes_dir, $file, $file_service, $controller); ?>
         </div>
         <div class="column is-9">
             <?php if ($action === 'file') { ?>
