@@ -73,7 +73,7 @@ $form_error = null;
 // Internal Vars
 $file_service = new FileService($notes_dir, ".md");
 
-// support functions
+// Support functions
 function validate_note_name($file_service, $name, $is_exists_check = true) {
     $error = 'Invalid name: ';
     $n = strlen($name);
@@ -103,12 +103,12 @@ function validate_note_content($content) {
 }
 
 // Process Request
-// If notes dir is not default, ensure we retain it on next request.
+
+// - If notes dir is not default, ensure we retain it on next request.
 if ($notes_dir !== 'notes') {
     $controller .= "notes_dir={$notes_dir}&";
 }
 
-// Process POST - Create Form
 if ($is_admin && isset($_POST['action'])) {
     // Process both new_submit and edit_submit
     $action = $_POST['action'];
@@ -146,8 +146,6 @@ if ($is_admin && isset($_POST['action'])) {
     }
 }
 
-// Continue Process GET - Convert Markdown template into HTML
-// We do this even after we process a Form
 if ($form_error === null) {
     if ($action === 'file' && $file_service->exists($file)) {
         if (!isset($file_content)) {
@@ -310,16 +308,16 @@ if ($form_error === null) {
     </div>
 </section>
 
-
 <?php if ($action === 'new' || $action === 'edit') { ?>
-    <script>
-        var editor = CodeMirror.fromTextArea(document.getElementById('file_content'), {
-            lineNumbers: true,
-            mode: 'gfm',
-            theme: 'default',
-        });
-        editor.setSize(null, '500');
-    </script>
+<script>
+    // Load CodeMirror with Markdown (GitHub Flavor Markdown) syntax highlight
+    var editor = CodeMirror.fromTextArea(document.getElementById('file_content'), {
+        lineNumbers: true,
+        mode: 'gfm',
+        theme: 'default',
+    });
+    editor.setSize(null, '500');
+</script>
 <?php } ?>
 
 </body>
