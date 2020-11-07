@@ -2,6 +2,8 @@
 /**
  * MarkNotes is a single `index.php` page application for managing Markdown notes.
  * 
+ * Project Home: https://github.com/zemian/marknotes
+ * License: The MIT License (MIT)
  * Author: Zemian Deng
  * Date: 2020-11-04
  */
