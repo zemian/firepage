@@ -1,3 +1,3 @@
-# MarkNotes
+# Welcome to MarkNotes
 
-Use your favorite editor and start taking Markdown notes!
+Go to [Admin](index.php?admin) mode to manage them!

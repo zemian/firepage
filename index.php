@@ -133,8 +133,9 @@ if ($file_service->exists($file)) {
             <?php if ($is_admin) { ?>
                 <p class="menu-label">Actions</p>
                 <ul class="menu-list">
-                    <li><a href='<?php echo $controller; ?>'>Home</a></li>
+                    <li><a href='<?php echo $controller; ?>'>Admin</a></li>
                     <li><a href='<?php echo $controller; ?>action=new'>New</a></li>
+                    <li><a href='index.php'>Exit</a></li>
                 </ul>
             <?php } ?>
 
