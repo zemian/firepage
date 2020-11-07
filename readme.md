@@ -1,6 +1,6 @@
 # MarkNotes
 
-MarkNotes is a single `index.php` page application for viewing Markdown notes.
+MarkNotes is a single `index.php` page application for managing Markdown notes.
 
 To try it, run this:
 

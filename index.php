@@ -1,15 +1,6 @@
 <?php
 /**
- * MarkNotes is a single `index.php` page application for viewing Markdown notes.
- * 
- * Due to large size of this file, you may search for sections:
- * 
- * - ## MarkNotes
- * - ### The index controller
- * - ### The index template
- * -
- * - ## Libraries
- * - ### Parsedown
+ * MarkNotes is a single `index.php` page application for managing Markdown notes.
  * 
  * Author: Zemian Deng
  * Date: 2020-11-04
