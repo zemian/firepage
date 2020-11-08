@@ -10,9 +10,9 @@ MarkNotes is a single `index.php` page application for managing Markdown notes.
 If this is a live site, go to [index.php?admin](index.php?admin) to manage the files!
 (NOTE: This link will not work in GitHub project hosting for obviously reason: they don't support PHP!)
 
-If you are looking for a live demo, try this <https://zemiancodeplayground.000webhostapp.com/marknotes/index.php>
+A live demo is available [here](https://zemiancodeplayground.000webhostapp.com/marknotes/index.php).
 
-Some screenshots are available [here](https://zemian.github.io/2020/11/07/marknotes/).
+And some screenshots are available [here](https://zemian.github.io/2020/11/07/marknotes/).
 
 ## Features
 
