@@ -35,13 +35,16 @@ The application supports the following URL query parameters:
 * `?notes_dir=mynotes` - Change the directory where to look for Markdown files.
 * `?file=mynote.md` - View a note file directly.
 
-## Customizing
+## Config Parameters 
 
-There are few parameters that you can easily change on top of the `index.php` file. They each has 
-comment describing what they do.
+There are few config parameters that you can easily change on top of the `index.php` file. See the code comment
+for more details. You may change these by directly modifying the `index.php` file, or by creating a 
+`.marknotes.json` file where `index.php` is located.
 
-Default Admin area is secured with a password. You may change this in `index.php`. Set it to empty
-if you do not want to use any password.
+## Admin Password
+
+The default Admin password is not set and note secured. You may set the password in `admin_password` 
+config Parameter mentioned above to secure it.
 
 ## Design Notes
 
