@@ -7,7 +7,10 @@ MarkNotes is a single `index.php` page application for managing Markdown notes.
  * Author: Zemian Deng
  * Date: 2020-11-04
 
-Go to [Admin](index.php?admin) mode to manage them!
+If this is a live site, go to [index.php?admin](index.php?admin) to manage the files!
+(NOTE: This link will not work in GitHub project hosting for obviously reason: they don't support PHP!)
+
+If you are looking for a live demo, try this <https://zemiancodeplayground.000webhostapp.com/marknotes/index.php>
 
 ## Features
 
@@ -22,38 +25,61 @@ Go to [Admin](index.php?admin) mode to manage them!
 
 ## Getting Started
 
-To try it, run this:
+Copy the `index.php` file to a live web server's public folder. And that's it!
+
+Or to try it locally in your system, install PHP and then run the following:
 
 	php -S localhost:3000
 	open http://localhost:3000
 
-By default the server will serve a directory named `notes` for all `*.md` files. 
-
-The application supports the following URL query parameters:
-
-* `?admin` - Go into Admin mode to manage the note files.
-* `?notes_dir=mynotes` - Change the directory where to look for Markdown files.
-* `?file=mynote.md` - View a note file directly.
+By default the web server will serve the project directory for all `*.md` files, and you 
+can click on any file link listed to view them. Change the browser URL with `index.php?admin`
+to go into Admin page. In there you can manage all the Markdown files.
 
 ## Config Parameters 
 
-There are few config parameters that you can easily change on top of the `index.php` file. See the code comment
-for more details. You may change these by directly modifying the `index.php` file, or by creating a 
-`.marknotes.json` file where `index.php` is located.
+There are few config parameters that you can easily change on top of the `index.php` file. 
+
+```
+$config = array(
+    'title' => 'MarkNotes',        // Use to display the HTML title and Admin logo text.
+    'admin_password' => '',        // Password to enter into admin area.
+    'max_menu_levels' => 3,        // Max number of depth level to list for menu links (sub-folders).
+    'default_ext' => '.md',        // File extension to manage. All else are ignore.
+    'default_notes_dir' => '',     // Specify the root dir for note files. Blank means current dir.
+    'default_note' => 'readme.md', // Default page to load in a notes dir.
+    'root_menu_label' => ''        // Set a value to be displayed as root menu label
+);
+```
+
+Or you may override any of these config parameters with a `.marknotes.json` file located where 
+the `index.php` is. The Json file should contain a Json object with attributes matching to config
+parameter names above. For example:
+
+```
+{
+    "title": "My Project",
+    "admin_password": "mysecret",
+    "max_menu_levels": 2,
+    "default_ext": ".markdown",
+    "default_notes_dir": "docs",
+    "default_note": "home.md",
+    "root_menu_label": "DOCS"
+}
+``` 
 
 ## Admin Password
 
-The default Admin password is not set and note secured. You may set the password in `admin_password` 
-config Parameter mentioned above to secure it.
+The default Admin password is not set and the Admin page is NOT secured. You may set the password 
+in `admin_password` config parameter to require a login prompt.
 
 ## Design Notes
 
-We used [parsedown](https://github.com/erusev/parsedown) to render Markdown file. This library 
-is embedded inside the `index.php` in order to keep the goal of single page application.
+We used PHP [parsedown](https://github.com/erusev/parsedown) to render Markdown file. This library 
+is embedded inside the `index.php` in order to keep the goal of a single page application.
 
-For styling we use [Bulma CSS](https://unpkg.com/bulma). If you don't want to have to have external internet
-access at all, then simply download it and replace the `<link>` element in the `index.php` file.
+For styling we use [Bulma CSS](https://unpkg.com/bulma). It's access through `unpkg.com` CDN directly.
+If you don't want to have to have external internet access dependency, then simply download it and 
+replace the `<link>` tag element in the `index.php` file.
 
-We also use [CodeMirror](https://unpkg.com/codemirror) to enhance Editor and syntax highlight. Again, 
-this will access external internet. But even if it's not able to load, the fall back HTML textarea will work
-just fine.
+We also use [CodeMirror](https://unpkg.com/codemirror) to enhance Editor and syntax highlight.
