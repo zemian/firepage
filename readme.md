@@ -15,9 +15,10 @@ Go to [Admin](index.php?admin) mode to manage them!
 * Easy copy and deploy `index.php` to any web folder.
 * Clean and simple UI style with Markdown editing syntax highlight.
 * Display all Markdown files with `readme.md` as default page.
-* Support sub folders browsing up to 3 levels.
+* Support sub folders browsing up to 3 levels. Ignore all dot hidden folders.
 * Web based Admin interface to manage Markdown files.
 * Secure - never serve files outside where `index.php` is.
+* Secure - support Admin password.
 
 ## Getting Started
 
@@ -33,6 +34,14 @@ The application supports the following URL query parameters:
 * `?admin` - Go into Admin mode to manage the note files.
 * `?notes_dir=mynotes` - Change the directory where to look for Markdown files.
 * `?file=mynote.md` - View a note file directly.
+
+## Customizing
+
+There are few parameters that you can easily change on top of the `index.php` file. They each has 
+comment describing what they do.
+
+Default Admin area is secured with a password. You may change this in `index.php`. Set it to empty
+if you do not want to use any password.
 
 ## Design Notes
 
