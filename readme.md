@@ -72,7 +72,7 @@ parameter names above. For example:
 
 ## Admin Password
 
-The default Admin password is not set and the Admin page is NOT secured. You may set the password 
+The default Admin password is not set and the Admin page is *not* secured. You may set the password 
 in `admin_password` config parameter to require a login prompt.
 
 ## Design Notes
