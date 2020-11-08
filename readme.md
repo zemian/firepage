@@ -12,6 +12,8 @@ If this is a live site, go to [index.php?admin](index.php?admin) to manage the f
 
 If you are looking for a live demo, try this <https://zemiancodeplayground.000webhostapp.com/marknotes/index.php>
 
+Some screenshots are available [here](https://zemian.github.io/2020/11/07/marknotes/).
+
 ## Features
 
 * Single file `index.php` application.
