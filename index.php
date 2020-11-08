@@ -9,6 +9,7 @@ $config = array(
     'default_ext' => '.md',        // File extension to manage. All else are ignore.
     'default_notes_dir' => '',     // Specify the root dir for note files. Blank means current dir.
     'default_note' => 'readme.md', // Default page to load in a notes dir.
+    'root_menu_label' => ''        // Set a value to be displayed as root menu label
 );
 
 /**
@@ -158,9 +159,10 @@ function validate_note_content($content) {
     return $error;
 }
 
-function echo_menu_links($max_levels, $notes_dir, $active_file, $file_service, $controller) {
+function echo_menu_links($notes_dir, $active_file, $file_service, $controller, $max_levels, $root_menu_label) {
     $base_name = basename($notes_dir);
-    echo "<p class='menu-label'>$base_name</p>";
+    $menu_label = $base_name ?: $root_menu_label;
+    echo "<p class='menu-label'>$menu_label</p>";
     echo "<ul class='menu-list'>";
 
     $files = $file_service->get_files($notes_dir);
@@ -179,7 +181,7 @@ function echo_menu_links($max_levels, $notes_dir, $active_file, $file_service, $
         $dirs = $file_service->get_dirs($notes_dir);
         foreach ($dirs as $item) {
             $path_name = $notes_dir ? "$notes_dir/$item" : $item;
-            echo_menu_links($max_levels - 1, $path_name, $active_file, $file_service, $controller);
+            echo_menu_links($path_name, $active_file, $file_service, $controller, $max_levels - 1, $root_menu_label);
         }
     }
     
@@ -372,7 +374,7 @@ if ($form_error === null) {
                 </ul>
             <?php } ?>
             
-            <?php echo_menu_links($config['max_menu_levels'], $notes_dir, $file, $file_service, $controller); ?>
+            <?php echo_menu_links($notes_dir, $file, $file_service, $controller, $config['max_menu_levels'], $config['root_menu_label']); ?>
         </div>
         <div class="column is-9">
             <?php if ($action === 'file') { ?>
