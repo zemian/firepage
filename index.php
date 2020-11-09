@@ -142,6 +142,8 @@ function validate_note_name($file_service, $name, $is_exists_check, $ext, $max_d
         $error .= "Must use alphabetic, numbers, '_', '-' characters only.";
     } else if (!preg_match('/' . $ext . '$/', $name)) {
         $error .= "Must have $ext extension.";
+    } else if (preg_match('/^\./', $name)) {
+        $error .= "Must not be a dot file or folder.";
     } else if ($is_exists_check && $file_service->exists($name)) {
         $error .= "File already exists.";
     } else if (substr_count($name, '/') > $max_depth) {
