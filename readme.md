@@ -49,7 +49,7 @@ the comments in Json. It's here for description purpose only.)
     "title": "Mark Notes",          /* Use to display the HTML title and Admin logo text. */
     "admin_password": "",           /* Set to non empty to required password to enter into admin area. */
     "max_menu_levels": 3,           /* Max number of depth level to list for menu links (sub-folders). */
-    "default_ext": ".md",           /* Content file extensions allowed to be manage. */
+    "default_ext_list": [".md"],    /* Content file extensions allowed to be manage. */
     "default_notes_dir": "",        /* Specify the root dir for note files. Blank means current dir. */
     "default_note": "readme.md",    /* Default page to load in a notes dir. */
     "root_menu_label": ""           /* Set a value to be displayed as root menu label. */

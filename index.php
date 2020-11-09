@@ -4,9 +4,9 @@
 //   to override these.
 $config = array(
     'title' => 'MarkNotes',        // Use to display the HTML title and Admin logo text.
-    'admin_password' => '',        // Password to enter into admin area.
+    'admin_password' => '',        // Set to non empty to required password to enter into admin area.
     'max_menu_levels' => 3,        // Max number of depth level to list for menu links (sub-folders).
-    'default_ext' => '.md',        // File extension to manage. All else are ignore.
+    'default_ext_list' => ['.md'], // Content file extensions allowed to be manage.
     'default_notes_dir' => '',     // Specify the root dir for note files. Blank means current dir.
     'default_note' => 'readme.md', // Default page to load in a notes dir.
     'root_menu_label' => ''        // Set a value to be displayed as root menu label
@@ -14,7 +14,8 @@ $config = array(
 
 // Global Vars
 $marknotes_version = '1.2.0';
-$marknotes_config = getenv('MARKNOTES_CONFIG') ?? (__DIR__ . '/.marknotes.json');
+$marknotes_root_dir = __DIR__;
+$marknotes_config_file = getenv('MARKNOTES_CONFIG') ?? (__DIR__ . "/.marknotes.json");
 
 
 /**
@@ -40,11 +41,11 @@ $marknotes_config = getenv('MARKNOTES_CONFIG') ?? (__DIR__ . '/.marknotes.json')
 // 
 class FileService {
     var $root_dir; // Root of the directory to work with. All relative paths should base from this.
-    var $file_ext; // We only will work with this file extension
+    var $file_ext_list; // We only will work with these file extension
 
-    function __construct($scan_dir, $file_ext) {
+    function __construct($scan_dir, $file_ext_list) {
         $this->root_dir = $scan_dir;
-        $this->file_ext = $file_ext;
+        $this->file_ext_list = $file_ext_list;
     }
 
     function get_files($sub_path = '') {
@@ -53,9 +54,12 @@ class FileService {
         $files = array_slice(scandir($dir), 2);
         foreach ($files as $file) {
             if (is_file("$dir/$file")) {
-                $len = strlen($this->file_ext);
-                if (substr_compare($file, $this->file_ext, -$len) === 0) {
-                    array_push($ret, $file);
+                foreach ($this->file_ext_list as $ext) {
+                    $len = strlen($ext);
+                    if (substr_compare($file, $ext, -$len) === 0) {
+                        array_push($ret, $file);
+                        break;
+                    }
                 }
             }
         }
@@ -117,7 +121,7 @@ function read_config($config_file) {
 //
 
 // Read in config file if there is one and let it override config parameters defined above
-$config = array_merge($config, read_config($marknotes_config));
+$config = array_merge($config, read_config($marknotes_config_file));
 
 // Page Vars
 $is_admin = isset($_GET['admin']);
@@ -130,18 +134,19 @@ $form_error = null;
 
 // Internal Vars
 // NOTE: File service should never browse outside of where this index.php located for security purpose.
-$file_service = new FileService(__DIR__ . ($notes_dir ? "/$notes_dir"  : ''), $config['default_ext']);
+$file_service = new FileService($marknotes_root_dir . ($notes_dir ? "/$notes_dir"  : ''), $config['default_ext_list']);
 
 // Support functions
-function validate_note_name($file_service, $name, $is_exists_check, $ext, $max_depth) {
+function validate_note_name($file_service, $name, $is_exists_check, $ext_list, $max_depth) {
     $error = 'Invalid name: ';
     $n = strlen($name);
+    $ext_words = implode('|', $ext_list);
     if (!($n > 0 && $n < 30 * $max_depth)) {
         $error .= 'Must not be empty and less than 100 chars.';
     } else if (!preg_match('/^[\w_\-\.\/]+$/', $name)) {
         $error .= "Must use alphabetic, numbers, '_', '-' characters only.";
-    } else if (!preg_match('/' . $ext . '$/', $name)) {
-        $error .= "Must have $ext extension.";
+    } else if (!preg_match('/(' . $ext_words . ')$/', $name)) {
+        $error .= "Must have $ext_words extension.";
     } else if (preg_match('/^\./', $name)) {
         $error .= "Must not be a dot file or folder.";
     } else if ($is_exists_check && $file_service->exists($name)) {
@@ -243,7 +248,7 @@ if ($is_admin && isset($_POST['action'])) {
         $file_content = $_POST['file_content'];
         if ($form_error === null) {
             $is_exists_check = $action === 'new_submit';
-            $form_error = validate_note_name($file_service, $file, $is_exists_check, $config['default_ext'], $config['max_menu_levels']);
+            $form_error = validate_note_name($file_service, $file, $is_exists_check, $config['default_ext_list'], $config['max_menu_levels']);
         }
         if ($form_error === null) {
             $form_error = validate_note_content($file, $file_content);
@@ -280,7 +285,7 @@ if ($is_admin && isset($_POST['action'])) {
 if ($form_error === null) {
     if ($action === 'file' &&
         $file_service->exists($file) &&
-        validate_note_name($file_service, $file, false, $config['default_ext'], $config['max_menu_levels']) === null) {
+        validate_note_name($file_service, $file, false, $config['default_ext_list'], $config['max_menu_levels']) === null) {
         if (!isset($file_content)) {
             $file_content = $file_service->read($file);
         }
