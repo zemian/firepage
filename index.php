@@ -486,12 +486,9 @@ if ($form_error === null) {
 </script>
 <?php } ?>
 
-<?php if ($is_admin) { ?>
 <div class="footer">
-    <p>This site is powered by <a href="https://github.com/zemian/marknotes">MarkNotes <?php echo $marknotes_version; ?></a></p>
-    <?php echo date('Y') . ' &copy; Zemian Deng' ?>
+    <p>Powered by <a href="https://github.com/zemian/marknotes">MarkNotes <?php echo $marknotes_version; ?></a></p>
 </div>
-<?php } ?>
 
 </body>
 </html>
