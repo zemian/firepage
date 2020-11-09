@@ -54,7 +54,9 @@ the comments in Json. It's here for description purpose only.)
     "default_note": "home.md",      /* Default page to load in a notes dir. */         
     "root_menu_label": "DOCS"       /* Set a value to be displayed as root menu label */        
 }
-``` 
+```
+
+The config file location may also be specified using a server ENV variable `MARKNOTES_CONFIG`.
 
 ## Admin Password
 

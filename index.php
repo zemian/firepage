@@ -12,6 +12,11 @@ $config = array(
     'root_menu_label' => ''        // Set a value to be displayed as root menu label
 );
 
+// Global Vars
+$marknotes_version = '1.2.0';
+$marknotes_config = getenv('MARKNOTES_CONFIG') ?? (__DIR__ . '/.marknotes.json');
+
+
 /**
  * MarkNotes is a single `index.php` page application for managing Markdown notes.
  * 
@@ -23,15 +28,12 @@ $config = array(
  * Release Notes:
  * - 1.0.0 2020-10-01 First release!
  * - 1.1.0 2020-11-07 Add nested folders browsing
+ * - 1.2.0 -- Next release
  */
 
 //
 // ## MarkNotes
 //
-$marknotes_version = '1.1.0';
-
-// Read in config file if there is one and let it override config parameters defined above
-$config = array_merge($config, read_config());
 
 //
 // ### The services
@@ -102,10 +104,9 @@ function redirect($path) {
     exit();
 }
 
-function read_config() {
-    $file = __DIR__ . "/.marknotes.json";
-    if (file_exists($file)) {
-        $json = file_get_contents($file);
+function read_config($config_file) {
+    if (file_exists($config_file)) {
+        $json = file_get_contents($config_file);
         return json_decode($json, true);
     }
     return array();
@@ -114,6 +115,9 @@ function read_config() {
 //
 // ### The index controller
 //
+
+// Read in config file if there is one and let it override config parameters defined above
+$config = array_merge($config, read_config($marknotes_config));
 
 // Page Vars
 $is_admin = isset($_GET['admin']);
