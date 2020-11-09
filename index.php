@@ -1,23 +1,20 @@
 <?php
 // MarkNotes Config Parameters
-// - You may change these here to customize for your need, or better yet use ".marknotes.json" file
-//   to override these.
+// - You may override these with ".marknotes.json" config file.
 $config = array(
-    'title' => 'MarkNotes',        // Use to display the HTML title and Admin logo text.
-    'admin_password' => '',        // Set to non empty to required password to enter into admin area.
-    'max_menu_levels' => 3,        // Max number of depth level to list for menu links (sub-folders).
-    'default_ext_list' => ['.md'], // Content file extensions allowed to be manage.
-    'default_notes_dir' => '',     // Specify the root dir for note files. Blank means current dir.
-    'default_note' => 'readme.md', // Default page to load in a notes dir.
-    'root_menu_label' => ''        // Set a value to be displayed as root menu label
+    'title' => 'MarkNotes',
+    'admin_password' => '',
+    'max_menu_levels' => 3,
+    'default_ext_list' => ['.md'],
+    'default_notes_dir' => '',
+    'default_note' => 'readme.md',
+    'root_menu_label' => ''
 );
 
 // Global Vars
 $marknotes_version = '1.2.0';
-$marknotes_root_dir = __DIR__;
 $marknotes_config_name = '.marknotes.json';
-$marknotes_config_file = getenv('MARKNOTES_CONFIG') ?? (__DIR__ . "/$marknotes_config_name");
-
+$marknotes_root_dir = __DIR__;
 
 /**
  * MarkNotes is a single `index.php` page application for managing Markdown notes.
@@ -124,8 +121,10 @@ function read_config($config_file) {
 // ### The index controller
 //
 
-// Read in config file if there is one and let it override config parameters defined above
-$config = array_merge($config, read_config($marknotes_config_file));
+// Override $config if there is a config file
+$_env_config = getenv('MARKNOTES_CONFIG');
+$_config_file = $_env_config === false ? (__DIR__ . "/$marknotes_config_name") : $_env_config;
+$config = array_merge($config, read_config($_config_file));
 
 // Page Vars
 $is_admin = isset($_GET['admin']);
@@ -136,8 +135,7 @@ $url_path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 $controller = $url_path . '?' . ($is_admin ? 'admin=true&' : '');
 $form_error = null;
 
-// Internal Vars
-// NOTE: File service should never browse outside of where this index.php located for security purpose.
+// Service Vars
 $file_service = new FileService($marknotes_root_dir . ($notes_dir ? "/$notes_dir"  : ''), $config['default_ext_list']);
 
 // Support functions
