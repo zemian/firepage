@@ -15,7 +15,8 @@ $config = array(
 // Global Vars
 $marknotes_version = '1.2.0';
 $marknotes_root_dir = __DIR__;
-$marknotes_config_file = getenv('MARKNOTES_CONFIG') ?? (__DIR__ . "/.marknotes.json");
+$marknotes_config_name = '.marknotes.json';
+$marknotes_config_file = getenv('MARKNOTES_CONFIG') ?? (__DIR__ . "/$marknotes_config_name");
 
 
 /**
@@ -29,7 +30,9 @@ $marknotes_config_file = getenv('MARKNOTES_CONFIG') ?? (__DIR__ . "/.marknotes.j
  * Release Notes:
  * - 1.0.0 2020-10-01 First release!
  * - 1.1.0 2020-11-07 Add nested folders browsing
- * - 1.2.0 -- Next release
+ * - 1.2.0 Next_release 
+ *         * Allow multiple file extension list
+ *         * Validate and prevent hidden files/folders creation
  */
 
 //
@@ -49,11 +52,12 @@ class FileService {
     }
 
     function get_files($sub_path = '') {
+        global $marknotes_config_name;
         $ret = [];
         $dir = $this->root_dir . ($sub_path ? "/$sub_path" : '');
         $files = array_slice(scandir($dir), 2);
         foreach ($files as $file) {
-            if (is_file("$dir/$file")) {
+            if (is_file("$dir/$file") && $file !== $marknotes_config_name) {
                 foreach ($this->file_ext_list as $ext) {
                     $len = strlen($ext);
                     if (substr_compare($file, $ext, -$len) === 0) {
@@ -138,6 +142,7 @@ $file_service = new FileService($marknotes_root_dir . ($notes_dir ? "/$notes_dir
 
 // Support functions
 function validate_note_name($file_service, $name, $is_exists_check, $ext_list, $max_depth) {
+    global $marknotes_config_name;
     $error = 'Invalid name: ';
     $n = strlen($name);
     $ext_words = implode('|', $ext_list);
@@ -147,6 +152,8 @@ function validate_note_name($file_service, $name, $is_exists_check, $ext_list, $
         $error .= "Must use alphabetic, numbers, '_', '-' characters only.";
     } else if (!preg_match('/(' . $ext_words . ')$/', $name)) {
         $error .= "Must have $ext_words extension.";
+    } else if (preg_match('/' . $marknotes_config_name . '$/', $name)) {
+        $error .= "Must not be reversed file '$marknotes_config_name'.";
     } else if (preg_match('#(^\.)|(/\.)#', $name)) {
         $error .= "Must not be a dot file or folder.";
     } else if ($is_exists_check && $file_service->exists($name)) {
