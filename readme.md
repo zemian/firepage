@@ -81,8 +81,9 @@ to non-empty value and it will prompt for login.
 
 ### Embedded in `index.php`
 
-We used PHP [parsedown](https://github.com/erusev/parsedown) to render Markdown file. This library 
-is embedded inside the `index.php` in order to keep the goal of a single page application.
+* [parsedown](https://github.com/erusev/parsedown) A PHP parser to render Markdown file.
+* [parsedown-extra](https://github.com/erusev/parsedown-extra) Support Markdown extra features.
+* [parsedown-extra-checkbox](https://github.com/leblanc-simon/parsedown-checkbox) Support Markdown checkbox/tasklist.
 
 ### External Dependencies
 
