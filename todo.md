@@ -1,19 +1,19 @@
 ### Next Release Work
 
+* [x] Add external config file `.marknotes.json` override
+* [x] Validate and prevent hidden (dot) files/folders creation
+* [x] Make `default_ext_list` config into list (support multiple extensions)
+* [x] Add Parsedown-Extra lib
 * [ ] Add syntax highlight for `.json` and `.html` in editor
+* [ ] Style `.txt` & `.json` files with `<pre>` wrapper
+* [ ] Add menu pretty Link support
+* [ ] Add menu links override for ordering and label
+* [ ] Add menu exclude folders from menu
+* [ ] Add menu exclude files from menu
 * [ ] Add theme/template support
 * [ ] Add file extension template support
-* [ ] Add selenium tests
-* [ ] Add Menu Exclude folders from menu
-* [ ] Add Menu Exclude files from menu
-* [ ] Add Menu Pretty Link support
-* [ ] Add Menu links ordering and label: config `{ "menu_link" => { "readme.md" : { "order" => 0, "label" : Home" }}}`
-* [ ] Add Menu disable auto link
 * [ ] Add Markdown outline display
-* [ ] Style `.txt` & `.json` files with `<pre>` wrapper
 * [ ] Style external link with an icon
+* [ ] Add collapsable toggle on top level menu link
 * [ ] Resolve `index.php?file=<name.md>` with Markdown `[name](name.md)` link
-* [x] Add Parsedown-Extra lib
-* [x] Make `default_ext_list` config into list (support multiple extensions)
-* [x] Validate and prevent hidden (dot) files/folders creation
-* [x] Add external config file `.marknotes.json` override
+* [ ] Add Selenium tests
