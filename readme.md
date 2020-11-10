@@ -3,9 +3,9 @@
 MarkNotes is a single `index.php` page application for managing Markdown files.
 
 * Project Home: https://github.com/zemian/marknotes
-* License: The MIT License (MIT)
-* Author: Zemian Deng
-* Date: 2020-11-04
+* Project Owner: Zemian Deng
+* License: [The MIT License (MIT)](index.php?file=license.md)
+* Release: [Notes](index.php?file=release.md)
 
 If this is a live site, go to [Admin](index.php?admin) to manage the files!
 (NOTE: This link will not work in GitHub project hosting for obviously reason: they don't support PHP!)
@@ -83,7 +83,6 @@ to non-empty value and it will prompt for login.
 
 * [parsedown](https://github.com/erusev/parsedown) A PHP parser to render Markdown file.
 * [parsedown-extra](https://github.com/erusev/parsedown-extra) Support Markdown extra features.
-* [parsedown-extra-checkbox](https://github.com/leblanc-simon/parsedown-checkbox) Support Markdown checkbox/tasklist.
 
 ### External Dependencies
 
