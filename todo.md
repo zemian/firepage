@@ -1,15 +1,16 @@
 ### Next Release Work
 
-* [x] Add external config file `.marknotes.json` override
-* [x] Validate and prevent hidden (dot) files/folders creation
+* [x] Fix `.marknotes.json` config override
 * [x] Make `default_ext_list` config into list (support multiple extensions)
+* [x] Add footer to site
+* [x] Validate and prevent hidden (dot) files/folders creation
 * [x] Add Parsedown-Extra lib
-* [ ] Add syntax highlight for `.json` and `.html` in editor
 * [ ] Style `.txt` & `.json` files with `<pre>` wrapper
 * [ ] Add menu pretty Link support
 * [ ] Add menu links override for ordering and label
 * [ ] Add menu exclude folders from menu
 * [ ] Add menu exclude files from menu
+* [ ] Add syntax highlight for `.json` and `.html` in editor
 * [ ] Add theme/template support
 * [ ] Add file extension template support
 * [ ] Add Markdown outline display
