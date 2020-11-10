@@ -1,9 +1,11 @@
 ### Next Release Work
 
 * [x] Fix `.marknotes.json` config override
+* [x] Add `MARKNOTES_CONFIG` env config file loading
 * [x] Make `default_ext_list` config into list (support multiple extensions)
 * [x] Add footer to site
-* [x] Validate and prevent hidden (dot) files/folders creation
+* [x] Validate hidden (dot) files/folders creation and edit
+* [x] Validate reserved `.marknotes.json` file name
 * [x] Add Parsedown-Extra lib
 * [ ] Style `.txt` & `.json` files with `<pre>` wrapper
 * [ ] Add menu pretty Link support
