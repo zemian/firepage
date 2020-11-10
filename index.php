@@ -1,4 +1,17 @@
 <?php
+/**
+ * MarkNotes is a single `index.php` page application for managing Markdown notes.
+ *
+ * Project Home: https://github.com/zemian/marknotes
+ * License: The MIT License (MIT)
+ * Author: Zemian Deng
+ * Date: 2020-11-04
+ */
+
+//
+// ## MarkNotes
+//
+
 // MarkNotes Config Parameters
 // - You may override these with ".marknotes.json" config file.
 $config = array(
@@ -17,29 +30,140 @@ define('MARKNOTES_CONFIG_ENV_KEY', 'MARKNOTES_CONFIG');
 define('MARKNOTES_CONFIG_NAME', '.marknotes.json');
 define('MARKNOTES_ROOT_DIR', __DIR__);
 
-/**
- * MarkNotes is a single `index.php` page application for managing Markdown notes.
- * 
- * Project Home: https://github.com/zemian/marknotes
- * License: The MIT License (MIT)
- * Author: Zemian Deng
- * Date: 2020-11-04
- */
-
 //
-// ## MarkNotes
-//
-
-//
-// ### The services
+// ### The MarkNotes Application
 // 
-class FileService {
-    var $root_dir; // Root of the directory to work with. All relative paths should base from this.
-    var $file_ext_list; // We only will work with these file extension
+class MarkNotesApp {
+    
+    function __construct($config) {
+        // Config property
+        // - Allow external file override
+        $_env_config = getenv(MARKNOTES_CONFIG_ENV_KEY);
+        $_config_file = $_env_config === false ? (__DIR__ . "/" . MARKNOTES_CONFIG_NAME) : $_env_config;
+        $this->config = array_merge($config, $this->read_config($_config_file));
 
-    function __construct($scan_dir, $file_ext_list) {
-        $this->root_dir = $scan_dir;
-        $this->file_ext_list = $file_ext_list;
+        // Page property
+        $this->page = new class ($config) {
+            function __construct($config) {
+                $this->is_admin = isset($_GET['admin']);
+                $this->notes_dir = $_GET['notes_dir'] ?? $config['default_notes_dir'];
+                $this->action = $_GET['action'] ?? "file"; // Default action is to GET file
+                $this->file = $_GET['file'] ?? $config['default_note'];
+                $this->url_path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+                $this->controller = $this->url_path . '?' . ($this->is_admin ? 'admin=true&' : '');
+                $this->title = $config['title'];
+                $this->admin_password = $config['admin_password'];
+                $this->max_menu_levels = $config['max_menu_levels'];
+                $this->form_error = null;
+                $this->delete_status = null;
+                $this->file_content = null;
+                $this->file_content_formatted = null;
+            }
+        };
+        
+        $this->root_dir = MARKNOTES_ROOT_DIR . ($this->page->notes_dir ? "/{$this->page->notes_dir}"  : '');
+        $this->file_ext_list = $config['default_ext_list'];
+        $this->parsedown = new ParsedownExtra();
+    }
+
+    function process_request() {
+        // Process Request and return $this->page var
+        $action = $this->page->action;
+        $is_admin = $this->page->is_admin;
+        $file = $this->page->file;
+        $notes_dir = $this->page->notes_dir;
+        $controller = $this->page->controller;
+        $admin_password = $this->config['admin_password'];
+                    
+        // Check to see if admin password is enabled and if yes, ensure user login first
+        if ($is_admin && $admin_password !== '') {
+            session_start();
+            if ($this->get_admin_session() === null) {
+                $this->page->action = "login";
+            }
+        }
+
+        // If notes dir is not default, ensure we retain it on next request in the controller.
+        if ($notes_dir !== 'notes') {
+            $this->page->controller .= "notes_dir={$notes_dir}&";
+        }
+
+        // Process POST requests
+        if ($is_admin && isset($_POST['action'])) {
+            $this->page->action = $_POST['action'];
+            
+            $action = $this->page->action;
+            $form_error = &$this->form_error; // Use Ref
+
+            if ($action === 'login_submit') {
+                $password = $_POST['password'];
+                $form_error = $this->login($password, $admin_password);
+
+                if ($form_error === null) {
+                    $this->redirect($controller);
+                }
+            } else {
+                // Process both new_submit and edit_submit
+                $this->page->file = $_POST['file'];
+                $this->page->file_content = $_POST['file_content'];
+                
+                $file_content = &$this->page->file_content; // Use Ref 
+                if ($form_error === null) {
+                    $is_exists_check = $action === 'new_submit';
+                    $form_error = $this->validate_note_name($file, $is_exists_check);
+                }
+                if ($form_error === null) {
+                    $form_error = $this->validate_note_content($file_content);
+                }
+                if ($form_error === null) {
+                    $this->write($file, $file_content);
+                    $this->redirect($controller . "file=$file");
+                }
+            }
+        } else if ($is_admin && $action === 'new') {
+            $this->page->file = '';
+            $this->page->file_content = '';
+        } else if ($is_admin && $action === 'edit') {
+            // Process GET Edit Form
+            $file = $this->page->file;
+            $file_content = &$this->page->file_content; // Use Ref 
+            if ($this->exists($file)) {
+                $file_content = $this->read($file);
+            } else {
+                $file_content = "File not found: $file";
+            }
+        } else if ($is_admin && $action === 'delete-confirmed') {
+            // Process GET - DELETE file
+            $file = $this->page->file;
+            $delete_status = &$this->page->delete_status; // Use Ref
+            if ($this->delete($file)) {
+                $delete_status = "File $file deleted";
+            } else {
+                $delete_status = "File not found: $file";
+            }
+        } else if ($action === 'logout') {
+            $this->logout();
+            $this->redirect($controller);
+        }
+
+        $action = $this->page->action; // Note POST action might have changed this! So reload it.
+        if ($action !== 'login' && $this->page->form_error === null) {
+            $file_content = &$this->page->file_content; // Use Ref
+            $file_content_formatted = &$this->page->file_content_formatted; // Use Ref
+            if ($action === 'file') {
+                if($this->exists($file) &&
+                    $this->validate_note_name($file, false) === null) {
+                    if (!isset($file_content)) {
+                        $file_content = $this->read($file);
+                    }
+                    $file_content_formatted = $this->convert_to_markdown($file_content);
+                } else {
+                    $file_content_formatted = "File not found: $file";
+                }
+            }
+        }
+        
+        return $this->page;
     }
 
     function get_files($sub_path = '') {
@@ -95,209 +219,119 @@ class FileService {
     function delete($file) {
         return $this->exists($file) && unlink($this->root_dir . "/" . $file);
     }
-}
-
-function redirect($path) {
-    header("Location: $path");
-    exit();
-}
-
-function read_config($config_file) {
-    if (file_exists($config_file)) {
-        $json = file_get_contents($config_file);
-        return json_decode($json, true);
+    
+    function read_config($config_file) {
+        if (file_exists($config_file)) {
+            $json = file_get_contents($config_file);
+            return json_decode($json, true);
+        }
+        return array();
     }
-    return array();
-}
 
-//
-// ### The index controller
-//
-
-// Override $config if there is a config file
-$_env_config = getenv(MARKNOTES_CONFIG_ENV_KEY);
-$_config_file = $_env_config === false ? (__DIR__ . "/" . MARKNOTES_CONFIG_MAME) : $_env_config;
-$config = array_merge($config, read_config($_config_file));
-
-// Page Vars
-$is_admin = isset($_GET['admin']);
-$notes_dir = $_GET['notes_dir'] ?? $config['default_notes_dir'];
-$action = $_GET['action'] ?? "file"; // Default action is to GET file
-$file = $_GET['file'] ?? $config['default_note'];
-$url_path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
-$controller = $url_path . '?' . ($is_admin ? 'admin=true&' : '');
-$form_error = null;
-
-// Service Vars
-$file_service = new FileService(MARKNOTES_ROOT_DIR . ($notes_dir ? "/$notes_dir"  : ''), $config['default_ext_list']);
-
-// Support functions
-function validate_note_name($file_service, $name, $is_exists_check, $ext_list, $max_depth) {
-    $error = 'Invalid name: ';
-    $n = strlen($name);
-    $ext_words = implode('|', $ext_list);
-    if (!($n > 0 && $n < 30 * $max_depth)) {
-        $error .= 'Must not be empty and less than 100 chars.';
-    } else if (!preg_match('/^[\w_\-\.\/]+$/', $name)) {
-        $error .= "Must use alphabetic, numbers, '_', '-' characters only.";
-    } else if (!preg_match('/(' . $ext_words . ')$/', $name)) {
-        $error .= "Must have $ext_words extension.";
-    } else if (preg_match('/' . MARKNOTES_CONFIG_NAME . '$/', $name)) {
-        $error .= "Must not be reversed file: " . MARKNOTES_CONFIG_NAME;
-    } else if (preg_match('#(^\.)|(/\.)#', $name)) {
-        $error .= "Must not be a dot file or folder.";
-    } else if ($is_exists_check && $file_service->exists($name)) {
-        $error .= "File already exists.";
-    } else if (substr_count($name, '/') > $max_depth) {
-        $error .= "File nested path be less than $max_depth levels.";
-    } else {
-        $error = null;
+    function redirect($path) {
+        header("Location: $path");
+        exit();
     }
-    return $error;
-}
 
-function validate_note_content($content) {
-    $error = 'Invalid note content: ';
-    $n = strlen($content);
-    if (!($n < 1024 * 1024 * 10)) {
-        $error .= 'Must be less than 10MB.';
-    } else {
-        $error = null;
+    function get_admin_session() {
+        return $_SESSION['login'] ?? null;
     }
-    return $error;
-}
 
-function echo_menu_links($notes_dir, $active_file, $file_service, $controller, $max_levels, $root_menu_label) {
-    $base_name = basename($notes_dir);
-    $menu_label = $base_name ?: $root_menu_label;
-    echo "<p class='menu-label'>$menu_label</p>";
-    echo "<ul class='menu-list'>";
-
-    $files = $file_service->get_files($notes_dir);
-    $i = 0; // Use to track last item in loop
-    $files_len = count($files);
-    foreach ($files as $item) {
-        $path_name = $notes_dir ? "$notes_dir/$item" : $item;
-        $is_active = ($path_name === $active_file) ? "is-active": "";
-        echo "<li><a class='$is_active' href='{$controller}file=$path_name'>$item</a>";
-        if ($i++ < ($files_len - 1)) {
-            echo "</li>"; // We close all <li> except last one so Bulma memu list can be nested
+    function login($password, $admin_password) {
+        $n = strlen($password);
+        if (!($n > 0 && $n < 20) || $password !== $admin_password) {
+            return "Invalid Password";
+        } else {
+            $_SESSION['login'] = array('login_ts' => time());
+            return null;
         }
     }
+
+    function logout() {
+        unset($_SESSION['login']);
+    }
     
-    if ($max_levels > 0) {
-        $dirs = $file_service->get_dirs($notes_dir);
-        foreach ($dirs as $item) {
+    function validate_note_name($name, $is_exists_check) {
+        $ext_list = $this->config['default_ext_list'];
+        $max_depth = $this->config['max_menu_levels'];
+        $error = 'Invalid name: ';
+        $n = strlen($name);
+        $ext_words = implode('|', $ext_list);
+        if (!($n > 0 && $n < 30 * $max_depth)) {
+            $error .= 'Must not be empty and less than 100 chars.';
+        } else if (!preg_match('/^[\w_\-\.\/]+$/', $name)) {
+            $error .= "Must use alphabetic, numbers, '_', '-' characters only.";
+        } else if (!preg_match('/(' . $ext_words . ')$/', $name)) {
+            $error .= "Must have $ext_words extension.";
+        } else if (preg_match('/' . MARKNOTES_CONFIG_NAME . '$/', $name)) {
+            $error .= "Must not be reversed file: " . MARKNOTES_CONFIG_NAME;
+        } else if (preg_match('#(^\.)|(/\.)#', $name)) {
+            $error .= "Must not be a dot file or folder.";
+        } else if ($is_exists_check && $this->exists($name)) {
+            $error .= "File already exists.";
+        } else if (substr_count($name, '/') > $max_depth) {
+            $error .= "File nested path be less than $max_depth levels.";
+        } else {
+            $error = null;
+        }
+        return $error;
+    }
+
+    function validate_note_content($content) {
+        $error = 'Invalid note content: ';
+        $n = strlen($content);
+        $size = 1024 * 1024 * 10;
+        if (!($n < $size)) {
+            $error .= 'Must be less than $size bytes.';
+        } else {
+            $error = null;
+        }
+        return $error;
+    }
+
+    function echo_menu_links($notes_dir, $active_file, $max_levels) {
+        $base_name = basename($notes_dir);
+        $menu_label = $base_name ?: $this->config['root_menu_label'];
+        echo "<p class='menu-label'>$menu_label</p>";
+        echo "<ul class='menu-list'>";
+
+        $controller = $this->page->controller;
+        $files = $this->get_files($notes_dir);
+        $i = 0; // Use to track last item in loop
+        $files_len = count($files);
+        foreach ($files as $item) {
             $path_name = $notes_dir ? "$notes_dir/$item" : $item;
-            echo_menu_links($path_name, $active_file, $file_service, $controller, $max_levels - 1, $root_menu_label);
+            $is_active = ($path_name === $active_file) ? "is-active": "";
+            echo "<li><a class='$is_active' href='{$controller}file=$path_name'>$item</a>";
+            if ($i++ < ($files_len - 1)) {
+                echo "</li>"; // We close all <li> except last one so Bulma memu list can be nested
+            }
         }
+
+        if ($max_levels > 0) {
+            $dirs = $this->get_dirs($notes_dir);
+            foreach ($dirs as $item) {
+                $path_name = $notes_dir ? "$notes_dir/$item" : $item;
+                $this->echo_menu_links($path_name, $active_file, $max_levels - 1);
+            }
+        }
+
+        echo "</li>"; // Last menu item
+        echo "</ul>";
     }
     
-    echo "</li>"; // Last menu item
-    echo "</ul>";
-}
-
-function get_admin_session() {
-    return $_SESSION['login'] ?? null;
-}
-
-function login($password, $admin_password) {
-    $n = strlen($password);
-    if (!($n > 0 && $n < 20) || $password !== $admin_password) {
-        return "Invalid Password";
-    } else {
-        $_SESSION['login'] = array('login_ts' => time());
-        return null;
-    }
-}
-
-function logout() {
-    unset($_SESSION['login']);
-}
-
-// Process Request
-
-if ($is_admin && $config['admin_password'] !== '') {
-    session_start();
-    if (get_admin_session() === null) {
-        $action = "login";
-    }
-}
-
-// - If notes dir is not default, ensure we retain it on next request.
-if ($notes_dir !== 'notes') {
-    $controller .= "notes_dir={$notes_dir}&";
-}
-
-if ($is_admin && isset($_POST['action'])) {
-    $action = $_POST['action'];
-    
-    if ($action === 'login_submit') {
-        $password = $_POST['password'];
-        $form_error = login($password, $config['admin_password']);
-
-        if ($form_error === null) {
-            redirect($controller);
-        }
-    } else {
-        // Process both new_submit and edit_submit
-        $file = $_POST['file'];
-        $file_content = $_POST['file_content'];
-        if ($form_error === null) {
-            $is_exists_check = $action === 'new_submit';
-            $form_error = validate_note_name($file_service, $file, $is_exists_check, $config['default_ext_list'], $config['max_menu_levels']);
-        }
-        if ($form_error === null) {
-            $form_error = validate_note_content($file, $file_content);
-        }
-        if ($form_error === null) {
-            $file_service->write($file, $file_content);
-            redirect($controller . "file=$file");
-        }
-    }
-} else if ($is_admin && $action === 'new') {
-    $file = '';
-    $file_content = '';
-} else if ($is_admin && $action === 'edit') {
-    // Process GET Edit Form
-    $file = $_GET['file'];
-    if ($file_service->exists($file)) {
-        $file_content = $file_service->read($file);
-    } else {
-        $file_content = "File not found: $file";
-    }
-} else if ($is_admin && $action === 'delete-confirmed') {
-    // Process GET - DELETE file
-    $file = $_GET['file'];
-    if ($file_service->delete($file)) {
-        $delete_status = "File $file deleted";
-    } else {
-        $delete_status = "File not found: $file";
-    }
-} else if ($action === 'logout') {
-    logout();
-    redirect($controller);
-}
-
-if ($form_error === null) {
-    if ($action === 'file' &&
-        $file_service->exists($file) &&
-        validate_note_name($file_service, $file, false, $config['default_ext_list'], $config['max_menu_levels']) === null) {
-        if (!isset($file_content)) {
-            $file_content = $file_service->read($file);
-        }
-        $parsedown = new ParsedownExtra();
-        $file_content_formatted = $parsedown->text($file_content);
-    } else if ($action !== 'login') {
-        $file_content_formatted = "File not found: $file";
+    function convert_to_markdown($plain_text) {
+        return $this->parsedown->text($plain_text);
     }
 }
 ?>
 
-<?php 
+<?php
 //
 // ### The index template
 //
+$app = new MarkNotesApp($config);
+$page = $app->process_request();
 ?>
 <!doctype html>
 <html lang="en">
@@ -308,7 +342,7 @@ if ($form_error === null) {
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <link rel="stylesheet" href="https://unpkg.com/bulma">
 
-    <?php if ($action === 'new' || $action === 'edit') { ?>
+    <?php if ($page->action === 'new' || $page->action === 'edit') { ?>
         <link rel="stylesheet" href="https://unpkg.com/codemirror@5.58.2/lib/codemirror.css">
         <script src="https://unpkg.com/codemirror@5.58.2/lib/codemirror.js"></script>
         <script src="https://unpkg.com/codemirror@5.58.2/addon/mode/overlay.js"></script>
@@ -319,38 +353,38 @@ if ($form_error === null) {
         <script src="https://unpkg.com/codemirror@5.58.2/mode/markdown/markdown.js"></script>
         <script src="https://unpkg.com/codemirror@5.58.2/mode/gfm/gfm.js"></script>
     <?php } ?>
-    <title><?php echo $config['title']; ?></title>
+    <title><?php echo $page->title; ?></title>
 </head>
 <body>
 
-<?php if ($is_admin) { ?>
+<?php if ($page->is_admin) { ?>
     <div class="navbar">
         <div class="navbar-brand">
             <div class="navbar-item">
-                <a class="title" href='<?php echo $controller; ?>'><?php echo $config['title']; ?></a>
+                <a class="title" href='<?php echo $page->controller; ?>'><?php echo $page->title; ?></a>
             </div>
         </div>
         <div class="navbar-end">
-            <?php if ($action === 'file') { ?>
+            <?php if ($page->action === 'file') { ?>
             <div class="navbar-item">
-                <a href="<?php echo $controller; ?>action=edit&file=<?= $file ?>">EDIT</a>
+                <a href="<?php echo $page->controller; ?>action=edit&file=<?= $page->file ?>">EDIT</a>
             </div>
             <div class="navbar-item">
-                <a href="<?php echo $controller; ?>action=delete&file=<?= $file ?>">DELETE</a>
+                <a href="<?php echo $page->controller; ?>action=delete&file=<?= $page->file ?>">DELETE</a>
             </div>
             <?php } ?>
         </div>
     </div>
 <?php }?>
 
-<?php if ($is_admin && ($action === 'login' || $action === 'login_submit')) { ?>
+<?php if ($page->is_admin && ($page->action === 'login' || $page->action === 'login_submit')) { ?>
     <section class="section">
-        <?php if ($form_error !== null) { ?>
-            <div class="notification is-danger"><?php echo $form_error; ?></div>
+        <?php if ($page->form_error !== null) { ?>
+            <div class="notification is-danger"><?php echo $page->form_error; ?></div>
         <?php } ?>
         <div class="level">
             <div class="level-item has-text-centered">
-                <form method="POST" action="<?php echo $controller; ?>">
+                <form method="POST" action="<?php echo $page->controller; ?>">
                     <input type="hidden" name="action" value="login_submit">
                     <div class="field">
                         <div class="label">Admin Password</div>
@@ -369,93 +403,93 @@ if ($form_error === null) {
     <section class="section">
     <div class="columns">
         <div class="column is-3 menu">
-            <?php if ($is_admin) { ?>
+            <?php if ($page->is_admin) { ?>
                 <p class="menu-label">Admin</p>
                 <ul class="menu-list">
-                    <li><a href='<?php echo $controller; ?>action=new'>New</a></li>
+                    <li><a href='<?php echo $page->controller; ?>action=new'>New</a></li>
                     
-                    <?php if ($config['admin_password'] !== '' && get_admin_session() !== null) { ?>
-                        <li><a href='<?php echo $controller . "action=logout"; ?>'>Logout</a></li>
+                    <?php if ($page->admin_password !== '' && $app->get_admin_session() !== null) { ?>
+                        <li><a href='<?php echo $page->controller . "action=logout"; ?>'>Logout</a></li>
                     <?php } else { ?>
-                        <li><a href='<?php echo $url_path; ?>'>Exit</a></li>
+                        <li><a href='<?php echo $page->url_path; ?>'>Exit</a></li>
                     <?php } ?>
                 </ul>
             <?php } ?>
             
-            <?php echo_menu_links($notes_dir, $file, $file_service, $controller, $config['max_menu_levels'], $config['root_menu_label']); ?>
+            <?php $app->echo_menu_links($page->notes_dir, $page->file, $page->max_menu_levels); ?>
         </div>
         <div class="column is-9">
-            <?php if ($action === 'file') { ?>
+            <?php if ($page->action === 'file') { ?>
                 <div class="content">
                     <?php 
-                    if ($file_content_formatted === '') {
+                    if ($page->file_content_formatted === '') {
                         echo "<i>This note is empty!</i>";    
                     } else {
-                        echo $file_content_formatted;
+                        echo $page->file_content_formatted;
                     }
                     ?>
                 </div>
-            <?php } else if ($is_admin && ($action === 'new' || $action === 'new_submit')) { ?>
-                <?php if ($form_error !== null) { ?>
-                    <div class="notification is-danger"><?php echo $form_error; ?></div>
+            <?php } else if ($page->is_admin && ($page->action === 'new' || $page->action === 'new_submit')) { ?>
+                <?php if ($page->form_error !== null) { ?>
+                    <div class="notification is-danger"><?php echo $page->form_error; ?></div>
                 <?php } ?>
-                <form method="POST" action="<?php echo $controller; ?>">
+                <form method="POST" action="<?php echo $page->controller; ?>">
                     <input type="hidden" name="action" value="new_submit">
                     <div class="field">
                         <div class="label">File Name</div>
-                        <div class="control"><input class="input" type="text" name="file" value="<?php echo $file ?>"></div>
+                        <div class="control"><input class="input" type="text" name="file" value="<?php echo $page->file ?>"></div>
                     </div>
                     <div class="field">
                         <div class="label">Markdown</div>
-                        <div class="control"><textarea id='file_content' class="textarea" rows="20" name="file_content"><?php echo $file_content ?></textarea></div>
+                        <div class="control"><textarea id='file_content' class="textarea" rows="20" name="file_content"><?php echo $page->file_content ?></textarea></div>
                     </div>
                     <div class="field">
                         <div class="control">
                             <input class="button is-info" type="submit" name="submit" value="Create">
-                            <a class="button" href="<?php echo $controller; ?>">Cancel</a>
+                            <a class="button" href="<?php echo $page->controller; ?>">Cancel</a>
                         </div>
                     </div>
                 </form>
-            <?php } else if ($is_admin && ($action === 'edit' || $action === 'edit_submit')) { ?>
-                <form method="POST" action="<?php echo $controller; ?>">
+            <?php } else if ($page->is_admin && ($page->action === 'edit' || $page->action === 'edit_submit')) { ?>
+                <form method="POST" action="<?php echo $page->controller; ?>">
                     <input type="hidden" name="action" value="edit_submit">
                     <div class="field">
                         <div class="label">File Name</div>
-                        <div class="control"><input class="input" type="text" name="file" value="<?= $file ?>"></div>
+                        <div class="control"><input class="input" type="text" name="file" value="<?= $page->file ?>"></div>
                     </div>
                     <div class="field">
                         <div class="label">Markdown</div>
-                        <div class="control"><textarea id='file_content' class="textarea" rows="20" name="file_content"><?= $file_content ?></textarea></div>
+                        <div class="control"><textarea id='file_content' class="textarea" rows="20" name="file_content"><?= $page->file_content ?></textarea></div>
                     </div>
                     <div class="field">
                         <div class="control">
                             <input class="button is-info" type="submit" name="submit" value="Update">
-                            <a class="button" href="<?php echo $controller; ?>file=<?= $file ?>">Cancel</a>
+                            <a class="button" href="<?php echo $page->controller; ?>file=<?= $page->file ?>">Cancel</a>
                         </div>
                     </div>
                 </form>
-            <?php } else if ($is_admin && $action === 'delete') { ?>
+            <?php } else if ($page->is_admin && $page->action === 'delete') { ?>
                 <div class="message is-danger">
                     <div class="message-header">Delete Confirmation</div>
                     <div class="message-body">
-                        <p class="block">Are you sure you want to delete <b><?= $file ?></b>?</p>
+                        <p class="block">Are you sure you want to delete <b><?= $page->file ?></b>?</p>
 
-                        <a class="button is-info" href="<?php echo $controller; ?>action=delete-confirmed&file=<?= $file ?>">Delete</a>
-                        <a class="button" href="<?php echo $controller; ?>file=<?= $file ?>">Cancel</a>
+                        <a class="button is-info" href="<?php echo $page->controller; ?>action=delete-confirmed&file=<?= $page->file ?>">Delete</a>
+                        <a class="button" href="<?php echo $page->controller; ?>file=<?= $page->file ?>">Cancel</a>
                     </div>
                 </div>
-            <?php } else if ($is_admin && $action === 'delete-confirmed') { ?>
+            <?php } else if ($page->is_admin && $page->action === 'delete-confirmed') { ?>
                 <div class="message is-success">
                     <div class="message-header">Deleted!</div>
                     <div class="message-body">
-                        <p class="block"><?php echo $delete_status; ?></p>
+                        <p class="block"><?php echo $page->delete_status; ?></p>
                     </div>
                 </div>
             <?php } else { ?>
                 <div class="message is-warning">
                     <div class="message-header">Oops!</div>
                     <div class="message-body">
-                        <p class="block">We can not process this action: <?php echo $action ; ?></p>
+                        <p class="block">We can not process this action: <?php echo $page->action ; ?></p>
                     </div>
                 </div>
             <?php } ?>
@@ -464,7 +498,7 @@ if ($form_error === null) {
 </section>
 <?php } ?>
 
-<?php if ($action === 'new' || $action === 'edit') { ?>
+<?php if ($page->action === 'new' || $page->action === 'edit') { ?>
 <script>
     // Load CodeMirror with Markdown (GitHub Flavor Markdown) syntax highlight
     var editor = CodeMirror.fromTextArea(document.getElementById('file_content'), {
@@ -486,8 +520,8 @@ if ($form_error === null) {
 <?php
 //
 // ## Libraries
+// - We embed library into single index.php to make things simple.
 //
-// We embed library into single index.php to make things simple. 
 
 // 
 // ### Parsedown
