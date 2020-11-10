@@ -12,9 +12,10 @@ $config = array(
 );
 
 // Global Vars
-$marknotes_version = '1.2.0-SNAPSHOT';
-$marknotes_config_name = '.marknotes.json';
-$marknotes_root_dir = __DIR__;
+define('MARKNOTES_VERSION', '1.2.0-SNAPSHOT');
+define('MARKNOTES_CONFIG_ENV_KEY', 'MARKNOTES_CONFIG');
+define('MARKNOTES_CONFIG_NAME', '.marknotes.json');
+define('MARKNOTES_ROOT_DIR', __DIR__);
 
 /**
  * MarkNotes is a single `index.php` page application for managing Markdown notes.
@@ -42,12 +43,11 @@ class FileService {
     }
 
     function get_files($sub_path = '') {
-        global $marknotes_config_name;
         $ret = [];
         $dir = $this->root_dir . ($sub_path ? "/$sub_path" : '');
         $files = array_slice(scandir($dir), 2);
         foreach ($files as $file) {
-            if (is_file("$dir/$file") && $file !== $marknotes_config_name) {
+            if (is_file("$dir/$file") && $file !== MARKNOTES_CONFIG_NAME) {
                 foreach ($this->file_ext_list as $ext) {
                     $len = strlen($ext);
                     if (substr_compare($file, $ext, -$len) === 0) {
@@ -115,8 +115,8 @@ function read_config($config_file) {
 //
 
 // Override $config if there is a config file
-$_env_config = getenv('MARKNOTES_CONFIG');
-$_config_file = $_env_config === false ? (__DIR__ . "/$marknotes_config_name") : $_env_config;
+$_env_config = getenv(MARKNOTES_CONFIG_ENV_KEY);
+$_config_file = $_env_config === false ? (__DIR__ . "/" . MARKNOTES_CONFIG_MAME) : $_env_config;
 $config = array_merge($config, read_config($_config_file));
 
 // Page Vars
@@ -129,11 +129,10 @@ $controller = $url_path . '?' . ($is_admin ? 'admin=true&' : '');
 $form_error = null;
 
 // Service Vars
-$file_service = new FileService($marknotes_root_dir . ($notes_dir ? "/$notes_dir"  : ''), $config['default_ext_list']);
+$file_service = new FileService(MARKNOTES_ROOT_DIR . ($notes_dir ? "/$notes_dir"  : ''), $config['default_ext_list']);
 
 // Support functions
 function validate_note_name($file_service, $name, $is_exists_check, $ext_list, $max_depth) {
-    global $marknotes_config_name;
     $error = 'Invalid name: ';
     $n = strlen($name);
     $ext_words = implode('|', $ext_list);
@@ -143,8 +142,8 @@ function validate_note_name($file_service, $name, $is_exists_check, $ext_list, $
         $error .= "Must use alphabetic, numbers, '_', '-' characters only.";
     } else if (!preg_match('/(' . $ext_words . ')$/', $name)) {
         $error .= "Must have $ext_words extension.";
-    } else if (preg_match('/' . $marknotes_config_name . '$/', $name)) {
-        $error .= "Must not be reversed file '$marknotes_config_name'.";
+    } else if (preg_match('/' . MARKNOTES_CONFIG_NAME . '$/', $name)) {
+        $error .= "Must not be reversed file: " . MARKNOTES_CONFIG_NAME;
     } else if (preg_match('#(^\.)|(/\.)#', $name)) {
         $error .= "Must not be a dot file or folder.";
     } else if ($is_exists_check && $file_service->exists($name)) {
@@ -478,7 +477,7 @@ if ($form_error === null) {
 <?php } ?>
 
 <div class="footer">
-    <p>Powered by <a href="https://github.com/zemian/marknotes">MarkNotes <?php echo $marknotes_version; ?></a></p>
+    <p>Powered by <a href="https://github.com/zemian/marknotes">MarkNotes <?php echo MARKNOTES_VERSION; ?></a></p>
 </div>
 
 </body>
