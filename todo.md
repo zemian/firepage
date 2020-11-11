@@ -8,7 +8,8 @@
 * [x] Validate reserved `.marknotes.json` file name
 * [x] Add Parsedown-Extra lib
 * [x] Refactor code to use MarkNotesApp class
-* [ ] Style `.txt` & `.json` files with `<pre>` wrapper
+* [x] Style `.txt` & `.json` files with `<pre>` wrapper
+
 * [ ] Add menu pretty Link support
 * [ ] Add menu links override for ordering and label
 * [ ] Add menu exclude folders from menu
