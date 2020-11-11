@@ -67,7 +67,9 @@ class MarkNotesApp {
     function process_request() {
         // If this is admin request, and if password is enabled start session
         if ($this->page->is_admin && $this->is_password_enabled()) {
-            session_start();
+            if (!session_start()) {
+                die("Unable to create PHP session!");
+            }
             
             // If admin session is not set, then force action to be login first.
             if (!$this->is_logged_in()) {
@@ -364,11 +366,10 @@ class MarkNotesApp {
         }
     }
 }
-?>
 
-<?php
 //
-// ### The index template
+// ### App Entry
+// - Note that you must not generate any output before starting the PHP session!
 //
 $app = new MarkNotesApp($config);
 $page = $app->process_request();

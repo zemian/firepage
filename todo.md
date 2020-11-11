@@ -1,5 +1,5 @@
 ### Next Release Work
-
+* [x] Fix session failed to start
 * [ ] Add menu pretty Link support
 * [ ] Add menu links override for ordering and label
 * [ ] Add menu exclude folders from menu
