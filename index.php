@@ -25,7 +25,7 @@ $config = array(
 );
 
 // Global Vars
-define('MARKNOTES_VERSION', '1.2.0-SNAPSHOT');
+define('MARKNOTES_VERSION', '1.2.0');
 define('MARKNOTES_CONFIG_ENV_KEY', 'MARKNOTES_CONFIG');
 define('MARKNOTES_CONFIG_NAME', '.marknotes.json');
 define('MARKNOTES_ROOT_DIR', __DIR__);
