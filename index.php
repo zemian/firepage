@@ -400,29 +400,29 @@ $page = $app->process_request();
 <body>
 
 <?php if ($page->is_admin) { ?>
-<div class="navbar">
-    <div class="navbar-brand">
-        <div class="navbar-item">
-            <a class="title" href='<?php echo $page->controller; ?>'><?php echo $page->title; ?></a>
+    <div class="navbar">
+        <div class="navbar-brand">
+            <div class="navbar-item">
+                <a class="title" href='<?php echo $page->controller; ?>'><?php echo $page->title; ?></a>
+            </div>
         </div>
-    </div>
-    <div class="navbar-end">
-        <?php if ($page->is_admin && $page->action === 'file' && (!$app->is_password_enabled() || $app->is_logged_in())) { ?>
+        <div class="navbar-end">
+            <?php if ($page->is_admin && $page->action === 'file' && (!$app->is_password_enabled() || $app->is_logged_in())) { ?>
             <div class="navbar-item">
                 <a href="<?php echo $page->controller; ?>action=edit&file=<?= $page->file ?>">EDIT</a>
             </div>
             <div class="navbar-item">
                 <a href="<?php echo $page->controller; ?>action=delete&file=<?= $page->file ?>">DELETE</a>
             </div>
-        <?php } ?>
+            <?php } ?>
+        </div>
     </div>
-</div>
 <?php } ?>
 
 <?php if ($page->is_admin && ($app->is_password_enabled() && !$app->is_logged_in())) {?>
     <section class="section">
         <?php if ($page->form_error !== null) { ?>
-            <div class="notification is-danger"><?php echo $page->form_error; ?></div>
+        <div class="notification is-danger"><?php echo $page->form_error; ?></div>
         <?php } ?>
         <div class="level">
             <div class="level-item has-text-centered">
@@ -441,7 +441,7 @@ $page = $app->process_request();
             </div>
         </div>
     </section>
-<?php } else { ?>
+<?php } else { /* Not login form. */ ?>
     <?php if ($page->is_admin) { ?>
         <section class="section">
             <div class="columns">
@@ -449,14 +449,14 @@ $page = $app->process_request();
                     <p class="menu-label">Admin</p>
                     <ul class="menu-list">
                         <li><a href='<?php echo $page->controller; ?>action=new'>New</a></li>
-
+        
                         <?php if ($app->is_logged_in()) { ?>
                             <li><a href='<?php echo $page->controller . "action=logout"; ?>'>Logout</a></li>
                         <?php } else { ?>
                             <li><a href='<?php echo $page->url_path; ?>'>Exit</a></li>
                         <?php } ?>
                     </ul>
-
+        
                     <?php $app->echo_menu_links($page->notes_dir, $page->file, $page->max_menu_levels); ?>
                 </div>
                 <div class="column is-9">
@@ -504,7 +504,7 @@ $page = $app->process_request();
                             <div class="message-header">Delete Confirmation</div>
                             <div class="message-body">
                                 <p class="block">Are you sure you want to delete <b><?= $page->file ?></b>?</p>
-
+        
                                 <a class="button is-info" href="<?php echo $page->controller; ?>action=delete-confirmed&file=<?= $page->file ?>">Delete</a>
                                 <a class="button" href="<?php echo $page->controller; ?>file=<?= $page->file ?>">Cancel</a>
                             </div>
@@ -531,7 +531,6 @@ $page = $app->process_request();
                 </div>
             </div>
         </section>
-
         <?php if ($page->action === 'new' || $page->action === 'edit') { ?>
             <script>
                 // Load CodeMirror with Markdown (GitHub Flavor Markdown) syntax highlight
@@ -542,8 +541,8 @@ $page = $app->process_request();
                 });
                 editor.setSize(null, '500');
             </script>
-        <?php } ?>
-    <?php } else { ?>
+        <?php } /* End of new/edit form for <script> tag */?>
+    <?php } else { /* Not admin page */?>
         <section class="section">
             <div class="columns">
                 <div class="column is-3 menu">        
@@ -556,8 +555,8 @@ $page = $app->process_request();
                 </div>
             </div>
         </section>
-    <?php } ?>
-<?php } ?>
+    <?php } /* End of Not admin page */ ?>
+<?php } /* End of Not login form. */ ?>
 
 <div class="footer">
     <p>Powered by <a href="https://github.com/zemian/marknotes">MarkNotes <?php echo MARKNOTES_VERSION; ?></a></p>
