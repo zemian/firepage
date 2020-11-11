@@ -1,48 +1,194 @@
 <?php
-// MarkNotes Config Parameters
-// - You may change these here to customize for your need, or better yet use ".marknotes.json" file
-//   to override these.
-$config = array(
-    'title' => 'MarkNotes',        // Use to display the HTML title and Admin logo text.
-    'admin_password' => '',        // Password to enter into admin area.
-    'max_menu_levels' => 3,        // Max number of depth level to list for menu links (sub-folders).
-    'default_ext' => '.md',        // File extension to manage. All else are ignore.
-    'default_notes_dir' => '',     // Specify the root dir for note files. Blank means current dir.
-    'default_note' => 'readme.md', // Default page to load in a notes dir.
-    'root_menu_label' => ''        // Set a value to be displayed as root menu label
-);
-
 /**
  * MarkNotes is a single `index.php` page application for managing Markdown notes.
- * 
+ *
  * Project Home: https://github.com/zemian/marknotes
  * License: The MIT License (MIT)
  * Author: Zemian Deng
  * Date: 2020-11-04
- * 
- * Release Notes:
- * - 1.0.0 2020-10-01 First release!
- * - 1.1.0 2020-11-07 Add nested folders browsing
  */
 
 //
 // ## MarkNotes
 //
-$marknotes_version = '1.1.0';
 
-// Read in config file if there is one and let it override config parameters defined above
-$config = array_merge($config, read_config());
+// MarkNotes Config Parameters
+// - You may override these with ".marknotes.json" config file.
+$config = array(
+    'title' => 'MarkNotes',
+    'admin_password' => '',
+    'max_menu_levels' => 3,
+    'default_ext_list' => ['.md'],
+    'default_notes_dir' => '',
+    'default_note' => 'readme.md',
+    'root_menu_label' => ''
+);
+
+// Global Vars
+define('MARKNOTES_VERSION', '1.2.0');
+define('MARKNOTES_CONFIG_ENV_KEY', 'MARKNOTES_CONFIG');
+define('MARKNOTES_CONFIG_NAME', '.marknotes.json');
+define('MARKNOTES_ROOT_DIR', __DIR__);
 
 //
-// ### The services
+// ### The MarkNotes Application
 // 
-class FileService {
-    var $root_dir; // Root of the directory to work with. All relative paths should base from this.
-    var $file_ext; // We only will work with this file extension
+class MarkNotesApp {
+    
+    function __construct($config) {
+        // Config property
+        // - Allow external file override
+        $_env_config = getenv(MARKNOTES_CONFIG_ENV_KEY);
+        $_config_file = $_env_config === false ? (__DIR__ . "/" . MARKNOTES_CONFIG_NAME) : $_env_config;
+        $this->config = array_merge($config, $this->read_config($_config_file));
 
-    function __construct($scan_dir, $file_ext) {
-        $this->root_dir = $scan_dir;
-        $this->file_ext = $file_ext;
+        // Page property
+        $this->page = new class ($this->config) {
+            function __construct($config) {
+                $this->action = $_GET['action'] ?? "file"; // Default action is to GET file
+                $this->file = $_GET['file'] ?? $config['default_note'];
+                $this->notes_dir = $_GET['notes_dir'] ?? $config['default_notes_dir'];
+                $this->is_admin = isset($_GET['admin']);
+                $this->url_path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+                $this->controller = $this->url_path . '?' . ($this->is_admin ? 'admin=true&' : '');
+                $this->title = $config['title'];
+                $this->max_menu_levels = $config['max_menu_levels'];
+                $this->form_error = null;
+                $this->delete_status = null;
+                $this->file_content = null;
+                $this->file_content_formatted = null;
+            }
+        };
+        
+        $this->root_dir = MARKNOTES_ROOT_DIR . ($this->page->notes_dir ? "/{$this->page->notes_dir}"  : '');
+        $this->file_ext_list = $this->config['default_ext_list'];
+        $this->parsedown = new ParsedownExtra();
+    }
+
+    function process_request() {
+        // If this is admin request, and if password is enabled start session
+        if ($this->page->is_admin && $this->is_password_enabled()) {
+            session_start();
+            
+            // If admin session is not set, then force action to be login first.
+            if (!$this->is_logged_in()) {
+                $this->page->action = "login";
+            }
+        }
+        
+        // Process Request and return $this->page var
+        $action = $this->page->action;
+        
+        // If notes dir is not default, ensure we retain it on next request in the controller.
+        if ($this->page->notes_dir !== $this->config['default_notes_dir']) {
+            $this->page->controller .= "notes_dir={$this->page->notes_dir}&";
+        }
+
+        // Process POST requests
+        if (isset($_POST['action'])) {
+            $this->page->action = $_POST['action'];
+
+            $action = $this->page->action;
+            if ($action === 'login_submit') {
+                $password = $_POST['password'];
+                $admin_password = $this->config['admin_password'];
+                
+                $this->page->form_error = $this->login($password, $admin_password);
+                if ($this->page->form_error === null) {
+                    $this->redirect($this->page->controller);
+                }
+            } else if ($action === 'new_submit' || $action === 'edit_submit') {
+                $this->page->file = $_POST['file'];
+                $this->page->file_content = $_POST['file_content'];
+                
+                $file = $this->page->file;
+                $file_content = $this->page->file_content;
+                if ($this->page->form_error === null) {
+                    $is_exists_check = $action === 'new_submit';
+                    $this->page->form_error = $this->validate_note_name($file, $is_exists_check);
+                }
+                if ($this->page->form_error === null) {
+                    $this->page->form_error = $this->validate_note_content($file_content);
+                }
+                if ($this->page->form_error === null) {
+                    $this->write($file, $file_content);
+                    $this->redirect($this->page->controller . "file=$file");
+                }
+            } else {
+                die("Unknown action=$action");
+            }
+        } else {
+            // Process GET request
+            $is_admin = $this->page->is_admin;
+            if ($is_admin) {                
+                if ($action === 'new') {
+                    $this->page->file = '';
+                    $this->page->file_content = '';
+                } else if ($action === 'edit') {
+                    // Process GET Edit Form
+                    $file = $this->page->file;
+                    if ($this->exists($file)) {
+                        $this->page->file_content = $this->read($file);
+                    } else {
+                        $this->page->file_content = "File not found: $file";
+                    }
+                } else if ($action === 'delete-confirmed') {
+                    // Process GET - DELETE file
+                    $file = $this->page->file;
+                    $delete_status = &$this->page->delete_status; // Use Ref
+                    if ($this->delete($file)) {
+                        $delete_status = "File $file deleted";
+                    } else {
+                        $delete_status = "File not found: $file";
+                    }
+                } else if ($action === 'logout') {
+                    $this->logout();
+                    $this->redirect($this->page->controller);
+                } else if ($action === 'file') {
+                    $this->page->file_content = $this->get_file_content($this->page->file);
+                }
+            } else {
+                // GET - Not Admin Actions
+                if ($action === 'file'){
+                    $this->page->file_content = $this->get_file_content($this->page->file);
+                } else {
+                    die("Unknown action=$action");
+                }
+            }
+        }
+        
+        return $this->page;
+    }
+    
+    function transform_content($file, $content) {
+        if ($this->ends_with($file, '.md') || $this->ends_with($file, '.markdown')) {
+            return $this->convert_to_markdown($content);
+        } else if ($this->ends_with($file, '.txt')) {
+            return "<pre>" . htmlentities($content) . "</pre>";
+        } else if ($this->ends_with($file, '.json')) {
+            return "<pre>" . $content . "</pre>";
+        }
+        return $content;
+    }
+    
+    function get_file_content($file) {
+        if($this->exists($file) &&
+            $this->validate_note_name($file, false) === null) {
+            $content = $this->read($file);
+            return $this->transform_content($file, $content);
+        } else {
+            return "File not found: $file";
+        }
+    }
+    
+    function ends_with($str, $sub_str) {
+        $len = strlen($sub_str);
+        return substr_compare($str, $sub_str, -$len) === 0;
+    }
+
+    function starts_with($str, $sub_str) {
+        $len = strlen($sub_str);
+        return substr_compare($str, $sub_str, 0, $len) === 0;
     }
 
     function get_files($sub_path = '') {
@@ -50,10 +196,12 @@ class FileService {
         $dir = $this->root_dir . ($sub_path ? "/$sub_path" : '');
         $files = array_slice(scandir($dir), 2);
         foreach ($files as $file) {
-            if (is_file("$dir/$file")) {
-                $len = strlen($this->file_ext);
-                if (substr_compare($file, $this->file_ext, -$len) === 0) {
-                    array_push($ret, $file);
+            if (is_file("$dir/$file") && $file !== MARKNOTES_CONFIG_NAME) {
+                foreach ($this->file_ext_list as $ext) {
+                    if ($this->ends_with($file, $ext)) {
+                        array_push($ret, $file);
+                        break;
+                    }
                 }
             }
         }
@@ -67,7 +215,7 @@ class FileService {
         foreach ($files as $file) {
             if (is_dir("$dir/$file")) {
                 // Do not include hidden dot folders
-                if (substr_compare($file, '.', 0, 1) !== 0) {
+                if (!$this->starts_with($file, '.')) {
                     array_push($ret, $file);
                 }
             }
@@ -95,201 +243,136 @@ class FileService {
     function delete($file) {
         return $this->exists($file) && unlink($this->root_dir . "/" . $file);
     }
-}
-
-function redirect($path) {
-    header("Location: $path");
-    exit();
-}
-
-function read_config() {
-    $file = __DIR__ . "/.marknotes.json";
-    if (file_exists($file)) {
-        $json = file_get_contents($file);
-        return json_decode($json, true);
+    
+    function read_config($config_file) {
+        if (file_exists($config_file)) {
+            $json = file_get_contents($config_file);
+            return json_decode($json, true);
+        }
+        return array();
     }
-    return array();
-}
 
-//
-// ### The index controller
-//
-
-// Page Vars
-$is_admin = isset($_GET['admin']);
-$notes_dir = $_GET['notes_dir'] ?? $config['default_notes_dir'];
-$action = $_GET['action'] ?? "file"; // Default action is to GET file
-$file = $_GET['file'] ?? $config['default_note'];
-$url_path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
-$controller = $url_path . '?' . ($is_admin ? 'admin=true&' : '');
-$form_error = null;
-
-// Internal Vars
-// NOTE: File service should never browse outside of where this index.php located for security purpose.
-$file_service = new FileService(__DIR__ . ($notes_dir ? "/$notes_dir"  : ''), $config['default_ext']);
-
-// Support functions
-function validate_note_name($file_service, $name, $is_exists_check, $ext, $max_depth) {
-    $error = 'Invalid name: ';
-    $n = strlen($name);
-    if (!($n > 0 && $n < 30 * $max_depth)) {
-        $error .= 'Must not be empty and less than 100 chars.';
-    } else if (!preg_match('/^[\w_\-\.\/]+$/', $name)) {
-        $error .= "Must use alphabetic, numbers, '_', '-' characters only.";
-    } else if (!preg_match('/' . $ext . '$/', $name)) {
-        $error .= "Must have $ext extension.";
-    } else if ($is_exists_check && $file_service->exists($name)) {
-        $error .= "File already exists.";
-    } else if (substr_count($name, '/') > $max_depth) {
-        $error .= "File nested path be less than $max_depth levels.";
-    } else {
-        $error = null;
+    /** This method will EXIT! */
+    function redirect($path) {
+        header("Location: $path");
+        exit();
     }
-    return $error;
-}
 
-function validate_note_content($content) {
-    $error = 'Invalid note content: ';
-    $n = strlen($content);
-    if (!($n < 1024 * 1024 * 10)) {
-        $error .= 'Must be less than 10MB.';
-    } else {
-        $error = null;
+    function get_admin_session() {
+        return $_SESSION['login'] ?? null;
     }
-    return $error;
-}
 
-function echo_menu_links($notes_dir, $active_file, $file_service, $controller, $max_levels, $root_menu_label) {
-    $base_name = basename($notes_dir);
-    $menu_label = $base_name ?: $root_menu_label;
-    echo "<p class='menu-label'>$menu_label</p>";
-    echo "<ul class='menu-list'>";
-
-    $files = $file_service->get_files($notes_dir);
-    $i = 0; // Use to track last item in loop
-    $files_len = count($files);
-    foreach ($files as $item) {
-        $path_name = $notes_dir ? "$notes_dir/$item" : $item;
-        $is_active = ($path_name === $active_file) ? "is-active": "";
-        echo "<li><a class='$is_active' href='{$controller}file=$path_name'>$item</a>";
-        if ($i++ < ($files_len - 1)) {
-            echo "</li>"; // We close all <li> except last one so Bulma memu list can be nested
+    function login($password, $admin_password) {
+        $n = strlen($password);
+        if (!($n > 0 && $n < 20) || $password !== $admin_password) {
+            return "Invalid Password";
+        } else {
+            $_SESSION['login'] = array('login_ts' => time());
+            return null;
         }
     }
+
+    function logout() {
+        unset($_SESSION['login']);
+    }
+
+    function is_password_enabled() {
+        return $this->config['admin_password'] !== '';
+    }
+
+    function is_logged_in() {
+        return $this->get_admin_session() !== null;
+    }
     
-    if ($max_levels > 0) {
-        $dirs = $file_service->get_dirs($notes_dir);
-        foreach ($dirs as $item) {
+    function convert_to_markdown($plain_text) {
+        return $this->parsedown->text($plain_text);
+    }
+    
+    function validate_note_name($name, $is_exists_check) {
+        $ext_list = $this->config['default_ext_list'];
+        $max_depth = $this->config['max_menu_levels'];
+        $error = 'Invalid name: ';
+        $n = strlen($name);
+        $ext_words = implode('|', $ext_list);
+        if (!($n > 0 && $n < 30 * $max_depth)) {
+            $error .= 'Must not be empty and less than 100 chars.';
+        } else if (!preg_match('/^[\w_\-\.\/]+$/', $name)) {
+            $error .= "Must use alphabetic, numbers, '_', '-' characters only.";
+        } else if (!preg_match('/(' . $ext_words . ')$/', $name)) {
+            $error .= "Must have $ext_words extension.";
+        } else if (preg_match('/' . MARKNOTES_CONFIG_NAME . '$/', $name)) {
+            $error .= "Must not be reversed file: " . MARKNOTES_CONFIG_NAME;
+        } else if (preg_match('#(^\.)|(/\.)#', $name)) {
+            $error .= "Must not be a dot file or folder.";
+        } else if ($is_exists_check && $this->exists($name)) {
+            $error .= "File already exists.";
+        } else if (substr_count($name, '/') > $max_depth) {
+            $error .= "File nested path be less than $max_depth levels.";
+        } else {
+            $error = null;
+        }
+        return $error;
+    }
+
+    function validate_note_content($content) {
+        $error = 'Invalid note content: ';
+        $n = strlen($content);
+        $size = 1024 * 1024 * 10;
+        if (!($n < $size)) {
+            $error .= 'Must be less than $size bytes.';
+        } else {
+            $error = null;
+        }
+        return $error;
+    }
+
+    function echo_menu_links($notes_dir, $active_file, $max_levels) {
+        $base_name = basename($notes_dir);
+        $menu_label = $base_name ?: $this->config['root_menu_label'];
+        echo "<p class='menu-label'>$menu_label</p>";
+        echo "<ul class='menu-list'>";
+
+        $controller = $this->page->controller;
+        $files = $this->get_files($notes_dir);
+        $i = 0; // Use to track last item in loop
+        $files_len = count($files);
+        foreach ($files as $item) {
             $path_name = $notes_dir ? "$notes_dir/$item" : $item;
-            echo_menu_links($path_name, $active_file, $file_service, $controller, $max_levels - 1, $root_menu_label);
+            $is_active = ($path_name === $active_file) ? "is-active": "";
+            echo "<li><a class='$is_active' href='{$controller}file=$path_name'>$item</a>";
+            if ($i++ < ($files_len - 1)) {
+                echo "</li>"; // We close all <li> except last one so Bulma memu list can be nested
+            }
         }
+
+        if ($max_levels > 0) {
+            $dirs = $this->get_dirs($notes_dir);
+            foreach ($dirs as $item) {
+                $path_name = $notes_dir ? "$notes_dir/$item" : $item;
+                $this->echo_menu_links($path_name, $active_file, $max_levels - 1);
+            }
+        }
+
+        echo "</li>"; // Last menu item
+        echo "</ul>";
     }
     
-    echo "</li>"; // Last menu item
-    echo "</ul>";
-}
-
-function get_admin_session() {
-    return $_SESSION['login'] ?? null;
-}
-
-function login($password, $admin_password) {
-    $n = strlen($password);
-    if (!($n > 0 && $n < 20) || $password !== $admin_password) {
-        return "Invalid Password";
-    } else {
-        $_SESSION['login'] = array('login_ts' => time());
-        return null;
-    }
-}
-
-function logout() {
-    unset($_SESSION['login']);
-}
-
-// Process Request
-
-if ($is_admin && $config['admin_password'] !== '') {
-    session_start();
-    if (get_admin_session() === null) {
-        $action = "login";
-    }
-}
-
-// - If notes dir is not default, ensure we retain it on next request.
-if ($notes_dir !== 'notes') {
-    $controller .= "notes_dir={$notes_dir}&";
-}
-
-if ($is_admin && isset($_POST['action'])) {
-    $action = $_POST['action'];
-    
-    if ($action === 'login_submit') {
-        $password = $_POST['password'];
-        $form_error = login($password, $config['admin_password']);
-
-        if ($form_error === null) {
-            redirect($controller);
+    function echo_content($content) {
+        if ($content === '') {
+            echo "<i>This note is empty!</i>";
+        } else {
+            echo $content;
         }
-    } else {
-        // Process both new_submit and edit_submit
-        $file = $_POST['file'];
-        $file_content = $_POST['file_content'];
-        if ($form_error === null) {
-            $is_exists_check = $action === 'new_submit';
-            $form_error = validate_note_name($file_service, $file, $is_exists_check, $config['default_ext'], $config['max_menu_levels']);
-        }
-        if ($form_error === null) {
-            $form_error = validate_note_content($file, $file_content);
-        }
-        if ($form_error === null) {
-            $file_service->write($file, $file_content);
-            redirect($controller . "file=$file");
-        }
-    }
-} else if ($is_admin && $action === 'new') {
-    $file = '';
-    $file_content = '';
-} else if ($is_admin && $action === 'edit') {
-    // Process GET Edit Form
-    $file = $_GET['file'];
-    if ($file_service->exists($file)) {
-        $file_content = $file_service->read($file);
-    } else {
-        $file_content = "File not found: $file";
-    }
-} else if ($is_admin && $action === 'delete-confirmed') {
-    // Process GET - DELETE file
-    $file = $_GET['file'];
-    if ($file_service->delete($file)) {
-        $delete_status = "File $file deleted";
-    } else {
-        $delete_status = "File not found: $file";
-    }
-} else if ($action === 'logout') {
-    logout();
-    redirect($controller);
-}
-
-if ($form_error === null) {
-    if ($action === 'file' &&
-        $file_service->exists($file) &&
-        validate_note_name($file_service, $file, false, $config['default_ext'], $config['max_menu_levels']) === null) {
-        if (!isset($file_content)) {
-            $file_content = $file_service->read($file);
-        }
-        $parsedown = new Parsedown();
-        $file_content_formatted = $parsedown->text($file_content);
-    } else if ($action !== 'login') {
-        $file_content_formatted = "File not found: $file";
     }
 }
 ?>
 
-<?php 
+<?php
 //
 // ### The index template
 //
+$app = new MarkNotesApp($config);
+$page = $app->process_request();
 ?>
 <!doctype html>
 <html lang="en">
@@ -300,7 +383,7 @@ if ($form_error === null) {
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <link rel="stylesheet" href="https://unpkg.com/bulma">
 
-    <?php if ($action === 'new' || $action === 'edit') { ?>
+    <?php if ($page->is_admin && ($page->action === 'new' || $page->action === 'edit')) { ?>
         <link rel="stylesheet" href="https://unpkg.com/codemirror@5.58.2/lib/codemirror.css">
         <script src="https://unpkg.com/codemirror@5.58.2/lib/codemirror.js"></script>
         <script src="https://unpkg.com/codemirror@5.58.2/addon/mode/overlay.js"></script>
@@ -311,38 +394,39 @@ if ($form_error === null) {
         <script src="https://unpkg.com/codemirror@5.58.2/mode/markdown/markdown.js"></script>
         <script src="https://unpkg.com/codemirror@5.58.2/mode/gfm/gfm.js"></script>
     <?php } ?>
-    <title><?php echo $config['title']; ?></title>
+    
+    <title><?php echo $page->title; ?></title>
 </head>
 <body>
 
-<?php if ($is_admin) { ?>
+<?php if ($page->is_admin) { ?>
     <div class="navbar">
         <div class="navbar-brand">
             <div class="navbar-item">
-                <a class="title" href='<?php echo $controller; ?>'><?php echo $config['title']; ?></a>
+                <a class="title" href='<?php echo $page->controller; ?>'><?php echo $page->title; ?></a>
             </div>
         </div>
         <div class="navbar-end">
-            <?php if ($action === 'file') { ?>
+            <?php if ($page->is_admin && $page->action === 'file' && (!$app->is_password_enabled() || $app->is_logged_in())) { ?>
             <div class="navbar-item">
-                <a href="<?php echo $controller; ?>action=edit&file=<?= $file ?>">EDIT</a>
+                <a href="<?php echo $page->controller; ?>action=edit&file=<?= $page->file ?>">EDIT</a>
             </div>
             <div class="navbar-item">
-                <a href="<?php echo $controller; ?>action=delete&file=<?= $file ?>">DELETE</a>
+                <a href="<?php echo $page->controller; ?>action=delete&file=<?= $page->file ?>">DELETE</a>
             </div>
             <?php } ?>
         </div>
     </div>
-<?php }?>
+<?php } ?>
 
-<?php if ($is_admin && ($action === 'login' || $action === 'login_submit')) { ?>
+<?php if ($page->is_admin && ($app->is_password_enabled() && !$app->is_logged_in())) {?>
     <section class="section">
-        <?php if ($form_error !== null) { ?>
-            <div class="notification is-danger"><?php echo $form_error; ?></div>
+        <?php if ($page->form_error !== null) { ?>
+        <div class="notification is-danger"><?php echo $page->form_error; ?></div>
         <?php } ?>
         <div class="level">
             <div class="level-item has-text-centered">
-                <form method="POST" action="<?php echo $controller; ?>">
+                <form method="POST" action="<?php echo $page->controller; ?>">
                     <input type="hidden" name="action" value="login_submit">
                     <div class="field">
                         <div class="label">Admin Password</div>
@@ -357,123 +441,126 @@ if ($form_error === null) {
             </div>
         </div>
     </section>
-<?php } else { ?>
-    <section class="section">
-    <div class="columns">
-        <div class="column is-3 menu">
-            <?php if ($is_admin) { ?>
-                <p class="menu-label">Admin</p>
-                <ul class="menu-list">
-                    <li><a href='<?php echo $controller; ?>action=new'>New</a></li>
-                    
-                    <?php if ($config['admin_password'] !== '' && get_admin_session() !== null) { ?>
-                        <li><a href='<?php echo $controller . "action=logout"; ?>'>Logout</a></li>
+<?php } else { /* Not login form. */ ?>
+    <?php if ($page->is_admin) { ?>
+        <section class="section">
+            <div class="columns">
+                <div class="column is-3 menu">
+                    <p class="menu-label">Admin</p>
+                    <ul class="menu-list">
+                        <li><a href='<?php echo $page->controller; ?>action=new'>New</a></li>
+        
+                        <?php if ($app->is_logged_in()) { ?>
+                            <li><a href='<?php echo $page->controller . "action=logout"; ?>'>Logout</a></li>
+                        <?php } else { ?>
+                            <li><a href='<?php echo $page->url_path; ?>'>Exit</a></li>
+                        <?php } ?>
+                    </ul>
+        
+                    <?php $app->echo_menu_links($page->notes_dir, $page->file, $page->max_menu_levels); ?>
+                </div>
+                <div class="column is-9">
+                    <?php if ($page->action === 'new' || $page->action === 'new_submit') { ?>
+                        <?php if ($page->form_error !== null) { ?>
+                            <div class="notification is-danger"><?php echo $page->form_error; ?></div>
+                        <?php } ?>
+                        <form method="POST" action="<?php echo $page->controller; ?>">
+                            <input type="hidden" name="action" value="new_submit">
+                            <div class="field">
+                                <div class="label">File Name</div>
+                                <div class="control"><input class="input" type="text" name="file" value="<?php echo $page->file ?>"></div>
+                            </div>
+                            <div class="field">
+                                <div class="label">Markdown</div>
+                                <div class="control"><textarea id='file_content' class="textarea" rows="20" name="file_content"><?php echo $page->file_content ?></textarea></div>
+                            </div>
+                            <div class="field">
+                                <div class="control">
+                                    <input class="button is-info" type="submit" name="submit" value="Create">
+                                    <a class="button" href="<?php echo $page->controller; ?>">Cancel</a>
+                                </div>
+                            </div>
+                        </form>
+                    <?php } else if ($page->action === 'edit' || $page->action === 'edit_submit') { ?>
+                        <form method="POST" action="<?php echo $page->controller; ?>">
+                            <input type="hidden" name="action" value="edit_submit">
+                            <div class="field">
+                                <div class="label">File Name</div>
+                                <div class="control"><input class="input" type="text" name="file" value="<?= $page->file ?>"></div>
+                            </div>
+                            <div class="field">
+                                <div class="label">Markdown</div>
+                                <div class="control"><textarea id='file_content' class="textarea" rows="20" name="file_content"><?= $page->file_content ?></textarea></div>
+                            </div>
+                            <div class="field">
+                                <div class="control">
+                                    <input class="button is-info" type="submit" name="submit" value="Update">
+                                    <a class="button" href="<?php echo $page->controller; ?>file=<?= $page->file ?>">Cancel</a>
+                                </div>
+                            </div>
+                        </form>
+                    <?php } else if ($page->action === 'delete') { ?>
+                        <div class="message is-danger">
+                            <div class="message-header">Delete Confirmation</div>
+                            <div class="message-body">
+                                <p class="block">Are you sure you want to delete <b><?= $page->file ?></b>?</p>
+        
+                                <a class="button is-info" href="<?php echo $page->controller; ?>action=delete-confirmed&file=<?= $page->file ?>">Delete</a>
+                                <a class="button" href="<?php echo $page->controller; ?>file=<?= $page->file ?>">Cancel</a>
+                            </div>
+                        </div>
+                    <?php } else if ($page->action === 'delete-confirmed') { ?>
+                        <div class="message is-success">
+                            <div class="message-header">Deleted!</div>
+                            <div class="message-body">
+                                <p class="block"><?php echo $page->delete_status; ?></p>
+                            </div>
+                        </div>
+                    <?php } else if ($page->action === 'file') { ?>
+                        <div class="content">
+                            <?php $app->echo_content($page->file_content); ?>
+                        </div>
                     <?php } else { ?>
-                        <li><a href='<?php echo $url_path; ?>'>Exit</a></li>
+                        <div class="message is-warning">
+                            <div class="message-header">Oops!</div>
+                            <div class="message-body">
+                                <p class="block">We can not process this action: <?php echo $page->action ; ?></p>
+                            </div>
+                        </div>
                     <?php } ?>
-                </ul>
-            <?php } ?>
-            
-            <?php echo_menu_links($notes_dir, $file, $file_service, $controller, $config['max_menu_levels'], $config['root_menu_label']); ?>
-        </div>
-        <div class="column is-9">
-            <?php if ($action === 'file') { ?>
-                <div class="content">
-                    <?php 
-                    if ($file_content_formatted === '') {
-                        echo "<i>This note is empty!</i>";    
-                    } else {
-                        echo $file_content_formatted;
-                    }
-                    ?>
                 </div>
-            <?php } else if ($is_admin && ($action === 'new' || $action === 'new_submit')) { ?>
-                <?php if ($form_error !== null) { ?>
-                    <div class="notification is-danger"><?php echo $form_error; ?></div>
-                <?php } ?>
-                <form method="POST" action="<?php echo $controller; ?>">
-                    <input type="hidden" name="action" value="new_submit">
-                    <div class="field">
-                        <div class="label">File Name</div>
-                        <div class="control"><input class="input" type="text" name="file" value="<?php echo $file ?>"></div>
+            </div>
+        </section>
+        <?php if ($page->action === 'new' || $page->action === 'edit') { ?>
+            <script>
+                // Load CodeMirror with Markdown (GitHub Flavor Markdown) syntax highlight
+                var editor = CodeMirror.fromTextArea(document.getElementById('file_content'), {
+                    lineNumbers: true,
+                    mode: 'gfm',
+                    theme: 'default',
+                });
+                editor.setSize(null, '500');
+            </script>
+        <?php } /* End of new/edit form for <script> tag */?>
+    <?php } else { /* Not admin page */?>
+        <section class="section">
+            <div class="columns">
+                <div class="column is-3 menu">        
+                    <?php $app->echo_menu_links($page->notes_dir, $page->file, $page->max_menu_levels); ?>
+                </div>
+                <div class="column is-9">
+                    <div class="content">
+                        <?php $app->echo_content($page->file_content); ?>
                     </div>
-                    <div class="field">
-                        <div class="label">Markdown</div>
-                        <div class="control"><textarea id='file_content' class="textarea" rows="20" name="file_content"><?php echo $file_content ?></textarea></div>
-                    </div>
-                    <div class="field">
-                        <div class="control">
-                            <input class="button is-info" type="submit" name="submit" value="Create">
-                            <a class="button" href="<?php echo $controller; ?>">Cancel</a>
-                        </div>
-                    </div>
-                </form>
-            <?php } else if ($is_admin && ($action === 'edit' || $action === 'edit_submit')) { ?>
-                <form method="POST" action="<?php echo $controller; ?>">
-                    <input type="hidden" name="action" value="edit_submit">
-                    <div class="field">
-                        <div class="label">File Name</div>
-                        <div class="control"><input class="input" type="text" name="file" value="<?= $file ?>"></div>
-                    </div>
-                    <div class="field">
-                        <div class="label">Markdown</div>
-                        <div class="control"><textarea id='file_content' class="textarea" rows="20" name="file_content"><?= $file_content ?></textarea></div>
-                    </div>
-                    <div class="field">
-                        <div class="control">
-                            <input class="button is-info" type="submit" name="submit" value="Update">
-                            <a class="button" href="<?php echo $controller; ?>file=<?= $file ?>">Cancel</a>
-                        </div>
-                    </div>
-                </form>
-            <?php } else if ($is_admin && $action === 'delete') { ?>
-                <div class="message is-danger">
-                    <div class="message-header">Delete Confirmation</div>
-                    <div class="message-body">
-                        <p class="block">Are you sure you want to delete <b><?= $file ?></b>?</p>
+                </div>
+            </div>
+        </section>
+    <?php } /* End of Not admin page */ ?>
+<?php } /* End of Not login form. */ ?>
 
-                        <a class="button is-info" href="<?php echo $controller; ?>action=delete-confirmed&file=<?= $file ?>">Delete</a>
-                        <a class="button" href="<?php echo $controller; ?>file=<?= $file ?>">Cancel</a>
-                    </div>
-                </div>
-            <?php } else if ($is_admin && $action === 'delete-confirmed') { ?>
-                <div class="message is-success">
-                    <div class="message-header">Deleted!</div>
-                    <div class="message-body">
-                        <p class="block"><?php echo $delete_status; ?></p>
-                    </div>
-                </div>
-            <?php } else { ?>
-                <div class="message is-warning">
-                    <div class="message-header">Oops!</div>
-                    <div class="message-body">
-                        <p class="block">We can not process this action: <?php echo $action ; ?></p>
-                    </div>
-                </div>
-            <?php } ?>
-        </div>
-    </div>
-</section>
-<?php } ?>
-
-<?php if ($action === 'new' || $action === 'edit') { ?>
-<script>
-    // Load CodeMirror with Markdown (GitHub Flavor Markdown) syntax highlight
-    var editor = CodeMirror.fromTextArea(document.getElementById('file_content'), {
-        lineNumbers: true,
-        mode: 'gfm',
-        theme: 'default',
-    });
-    editor.setSize(null, '500');
-</script>
-<?php } ?>
-
-<?php if ($is_admin) { ?>
 <div class="footer">
-    <p>This site is powered by <a href="https://github.com/zemian/marknotes">MarkNotes <?php echo $marknotes_version; ?></a></p>
-    <?php echo date('Y') . ' &copy; Zemian Deng' ?>
+    <p>Powered by <a href="https://github.com/zemian/marknotes">MarkNotes <?php echo MARKNOTES_VERSION; ?></a></p>
 </div>
-<?php } ?>
 
 </body>
 </html>
@@ -481,8 +568,8 @@ if ($form_error === null) {
 <?php
 //
 // ## Libraries
+// - We embed library into single index.php to make things simple.
 //
-// We embed library into single index.php to make things simple. 
 
 // 
 // ### Parsedown
@@ -2197,5 +2284,546 @@ class Parsedown
         'wbr', 'time',
     );
 }
-?>
 
+//
+// ### Parsedown Extra
+//
+
+#
+#
+# Parsedown Extra
+# https://github.com/erusev/parsedown-extra
+#
+# (c) Emanuil Rusev
+# http://erusev.com
+#
+# For the full license information, view the LICENSE file that was distributed
+# with this source code.
+#
+#
+
+class ParsedownExtra extends Parsedown
+{
+    # ~
+
+    const version = '0.8.1';
+
+    # ~
+
+    function __construct()
+    {
+        if (version_compare(parent::version, '1.7.4') < 0)
+        {
+            throw new Exception('ParsedownExtra requires a later version of Parsedown');
+        }
+
+        $this->BlockTypes[':'] []= 'DefinitionList';
+        $this->BlockTypes['*'] []= 'Abbreviation';
+
+        # identify footnote definitions before reference definitions
+        array_unshift($this->BlockTypes['['], 'Footnote');
+
+        # identify footnote markers before before links
+        array_unshift($this->InlineTypes['['], 'FootnoteMarker');
+    }
+
+    #
+    # ~
+
+    function text($text)
+    {
+        $markup = parent::text($text);
+
+        # merge consecutive dl elements
+
+        $markup = preg_replace('/<\/dl>\s+<dl>\s+/', '', $markup);
+
+        # add footnotes
+
+        if (isset($this->DefinitionData['Footnote']))
+        {
+            $Element = $this->buildFootnoteElement();
+
+            $markup .= "\n" . $this->element($Element);
+        }
+
+        return $markup;
+    }
+
+    #
+    # Blocks
+    #
+
+    #
+    # Abbreviation
+
+    protected function blockAbbreviation($Line)
+    {
+        if (preg_match('/^\*\[(.+?)\]:[ ]*(.+?)[ ]*$/', $Line['text'], $matches))
+        {
+            $this->DefinitionData['Abbreviation'][$matches[1]] = $matches[2];
+
+            $Block = array(
+                'hidden' => true,
+            );
+
+            return $Block;
+        }
+    }
+
+    #
+    # Footnote
+
+    protected function blockFootnote($Line)
+    {
+        if (preg_match('/^\[\^(.+?)\]:[ ]?(.*)$/', $Line['text'], $matches))
+        {
+            $Block = array(
+                'label' => $matches[1],
+                'text' => $matches[2],
+                'hidden' => true,
+            );
+
+            return $Block;
+        }
+    }
+
+    protected function blockFootnoteContinue($Line, $Block)
+    {
+        if ($Line['text'][0] === '[' and preg_match('/^\[\^(.+?)\]:/', $Line['text']))
+        {
+            return;
+        }
+
+        if (isset($Block['interrupted']))
+        {
+            if ($Line['indent'] >= 4)
+            {
+                $Block['text'] .= "\n\n" . $Line['text'];
+
+                return $Block;
+            }
+        }
+        else
+        {
+            $Block['text'] .= "\n" . $Line['text'];
+
+            return $Block;
+        }
+    }
+
+    protected function blockFootnoteComplete($Block)
+    {
+        $this->DefinitionData['Footnote'][$Block['label']] = array(
+            'text' => $Block['text'],
+            'count' => null,
+            'number' => null,
+        );
+
+        return $Block;
+    }
+
+    #
+    # Definition List
+
+    protected function blockDefinitionList($Line, $Block)
+    {
+        if ( ! isset($Block) or isset($Block['type']))
+        {
+            return;
+        }
+
+        $Element = array(
+            'name' => 'dl',
+            'handler' => 'elements',
+            'text' => array(),
+        );
+
+        $terms = explode("\n", $Block['element']['text']);
+
+        foreach ($terms as $term)
+        {
+            $Element['text'] []= array(
+                'name' => 'dt',
+                'handler' => 'line',
+                'text' => $term,
+            );
+        }
+
+        $Block['element'] = $Element;
+
+        $Block = $this->addDdElement($Line, $Block);
+
+        return $Block;
+    }
+
+    protected function blockDefinitionListContinue($Line, array $Block)
+    {
+        if ($Line['text'][0] === ':')
+        {
+            $Block = $this->addDdElement($Line, $Block);
+
+            return $Block;
+        }
+        else
+        {
+            if (isset($Block['interrupted']) and $Line['indent'] === 0)
+            {
+                return;
+            }
+
+            if (isset($Block['interrupted']))
+            {
+                $Block['dd']['handler'] = 'text';
+                $Block['dd']['text'] .= "\n\n";
+
+                unset($Block['interrupted']);
+            }
+
+            $text = substr($Line['body'], min($Line['indent'], 4));
+
+            $Block['dd']['text'] .= "\n" . $text;
+
+            return $Block;
+        }
+    }
+
+    #
+    # Header
+
+    protected function blockHeader($Line)
+    {
+        $Block = parent::blockHeader($Line);
+
+        if (! isset($Block)) {
+            return null;
+        }
+
+        if (preg_match('/[ #]*{('.$this->regexAttribute.'+)}[ ]*$/', $Block['element']['text'], $matches, PREG_OFFSET_CAPTURE))
+        {
+            $attributeString = $matches[1][0];
+
+            $Block['element']['attributes'] = $this->parseAttributeData($attributeString);
+
+            $Block['element']['text'] = substr($Block['element']['text'], 0, $matches[0][1]);
+        }
+
+        return $Block;
+    }
+
+    #
+    # Markup
+
+    protected function blockMarkupComplete($Block)
+    {
+        if ( ! isset($Block['void']))
+        {
+            $Block['markup'] = $this->processTag($Block['markup']);
+        }
+
+        return $Block;
+    }
+
+    #
+    # Setext
+
+    protected function blockSetextHeader($Line, array $Block = null)
+    {
+        $Block = parent::blockSetextHeader($Line, $Block);
+
+        if (! isset($Block)) {
+            return null;
+        }
+
+        if (preg_match('/[ ]*{('.$this->regexAttribute.'+)}[ ]*$/', $Block['element']['text'], $matches, PREG_OFFSET_CAPTURE))
+        {
+            $attributeString = $matches[1][0];
+
+            $Block['element']['attributes'] = $this->parseAttributeData($attributeString);
+
+            $Block['element']['text'] = substr($Block['element']['text'], 0, $matches[0][1]);
+        }
+
+        return $Block;
+    }
+
+    #
+    # Inline Elements
+    #
+
+    #
+    # Footnote Marker
+
+    protected function inlineFootnoteMarker($Excerpt)
+    {
+        if (preg_match('/^\[\^(.+?)\]/', $Excerpt['text'], $matches))
+        {
+            $name = $matches[1];
+
+            if ( ! isset($this->DefinitionData['Footnote'][$name]))
+            {
+                return;
+            }
+
+            $this->DefinitionData['Footnote'][$name]['count'] ++;
+
+            if ( ! isset($this->DefinitionData['Footnote'][$name]['number']))
+            {
+                $this->DefinitionData['Footnote'][$name]['number'] = ++ $this->footnoteCount; # » &
+            }
+
+            $Element = array(
+                'name' => 'sup',
+                'attributes' => array('id' => 'fnref'.$this->DefinitionData['Footnote'][$name]['count'].':'.$name),
+                'handler' => 'element',
+                'text' => array(
+                    'name' => 'a',
+                    'attributes' => array('href' => '#fn:'.$name, 'class' => 'footnote-ref'),
+                    'text' => $this->DefinitionData['Footnote'][$name]['number'],
+                ),
+            );
+
+            return array(
+                'extent' => strlen($matches[0]),
+                'element' => $Element,
+            );
+        }
+    }
+
+    private $footnoteCount = 0;
+
+    #
+    # Link
+
+    protected function inlineLink($Excerpt)
+    {
+        $Link = parent::inlineLink($Excerpt);
+
+        if (! isset($Link)) {
+            return null;
+        }
+
+        $remainder = substr($Excerpt['text'], $Link['extent']);
+
+        if (preg_match('/^[ ]*{('.$this->regexAttribute.'+)}/', $remainder, $matches))
+        {
+            $Link['element']['attributes'] += $this->parseAttributeData($matches[1]);
+
+            $Link['extent'] += strlen($matches[0]);
+        }
+
+        return $Link;
+    }
+
+    #
+    # ~
+    #
+
+    protected function unmarkedText($text)
+    {
+        $text = parent::unmarkedText($text);
+
+        if (isset($this->DefinitionData['Abbreviation']))
+        {
+            foreach ($this->DefinitionData['Abbreviation'] as $abbreviation => $meaning)
+            {
+                $pattern = '/\b'.preg_quote($abbreviation, '/').'\b/';
+
+                $text = preg_replace($pattern, '<abbr title="'.$meaning.'">'.$abbreviation.'</abbr>', $text);
+            }
+        }
+
+        return $text;
+    }
+
+    #
+    # Util Methods
+    #
+
+    protected function addDdElement(array $Line, array $Block)
+    {
+        $text = substr($Line['text'], 1);
+        $text = trim($text);
+
+        unset($Block['dd']);
+
+        $Block['dd'] = array(
+            'name' => 'dd',
+            'handler' => 'line',
+            'text' => $text,
+        );
+
+        if (isset($Block['interrupted']))
+        {
+            $Block['dd']['handler'] = 'text';
+
+            unset($Block['interrupted']);
+        }
+
+        $Block['element']['text'] []= & $Block['dd'];
+
+        return $Block;
+    }
+
+    protected function buildFootnoteElement()
+    {
+        $Element = array(
+            'name' => 'div',
+            'attributes' => array('class' => 'footnotes'),
+            'handler' => 'elements',
+            'text' => array(
+                array(
+                    'name' => 'hr',
+                ),
+                array(
+                    'name' => 'ol',
+                    'handler' => 'elements',
+                    'text' => array(),
+                ),
+            ),
+        );
+
+        uasort($this->DefinitionData['Footnote'], 'self::sortFootnotes');
+
+        foreach ($this->DefinitionData['Footnote'] as $definitionId => $DefinitionData)
+        {
+            if ( ! isset($DefinitionData['number']))
+            {
+                continue;
+            }
+
+            $text = $DefinitionData['text'];
+
+            $text = parent::text($text);
+
+            $numbers = range(1, $DefinitionData['count']);
+
+            $backLinksMarkup = '';
+
+            foreach ($numbers as $number)
+            {
+                $backLinksMarkup .= ' <a href="#fnref'.$number.':'.$definitionId.'" rev="footnote" class="footnote-backref">&#8617;</a>';
+            }
+
+            $backLinksMarkup = substr($backLinksMarkup, 1);
+
+            if (substr($text, - 4) === '</p>')
+            {
+                $backLinksMarkup = '&#160;'.$backLinksMarkup;
+
+                $text = substr_replace($text, $backLinksMarkup.'</p>', - 4);
+            }
+            else
+            {
+                $text .= "\n".'<p>'.$backLinksMarkup.'</p>';
+            }
+
+            $Element['text'][1]['text'] []= array(
+                'name' => 'li',
+                'attributes' => array('id' => 'fn:'.$definitionId),
+                'rawHtml' => "\n".$text."\n",
+            );
+        }
+
+        return $Element;
+    }
+
+    # ~
+
+    protected function parseAttributeData($attributeString)
+    {
+        $Data = array();
+
+        $attributes = preg_split('/[ ]+/', $attributeString, - 1, PREG_SPLIT_NO_EMPTY);
+
+        foreach ($attributes as $attribute)
+        {
+            if ($attribute[0] === '#')
+            {
+                $Data['id'] = substr($attribute, 1);
+            }
+            else # "."
+            {
+                $classes []= substr($attribute, 1);
+            }
+        }
+
+        if (isset($classes))
+        {
+            $Data['class'] = implode(' ', $classes);
+        }
+
+        return $Data;
+    }
+
+    # ~
+
+    protected function processTag($elementMarkup) # recursive
+    {
+        # http://stackoverflow.com/q/1148928/200145
+        libxml_use_internal_errors(true);
+
+        $DOMDocument = new DOMDocument;
+
+        # http://stackoverflow.com/q/11309194/200145
+        $elementMarkup = mb_convert_encoding($elementMarkup, 'HTML-ENTITIES', 'UTF-8');
+
+        # http://stackoverflow.com/q/4879946/200145
+        $DOMDocument->loadHTML($elementMarkup);
+        $DOMDocument->removeChild($DOMDocument->doctype);
+        $DOMDocument->replaceChild($DOMDocument->firstChild->firstChild->firstChild, $DOMDocument->firstChild);
+
+        $elementText = '';
+
+        if ($DOMDocument->documentElement->getAttribute('markdown') === '1')
+        {
+            foreach ($DOMDocument->documentElement->childNodes as $Node)
+            {
+                $elementText .= $DOMDocument->saveHTML($Node);
+            }
+
+            $DOMDocument->documentElement->removeAttribute('markdown');
+
+            $elementText = "\n".$this->text($elementText)."\n";
+        }
+        else
+        {
+            foreach ($DOMDocument->documentElement->childNodes as $Node)
+            {
+                $nodeMarkup = $DOMDocument->saveHTML($Node);
+
+                if ($Node instanceof DOMElement and ! in_array($Node->nodeName, $this->textLevelElements))
+                {
+                    $elementText .= $this->processTag($nodeMarkup);
+                }
+                else
+                {
+                    $elementText .= $nodeMarkup;
+                }
+            }
+        }
+
+        # because we don't want for markup to get encoded
+        $DOMDocument->documentElement->nodeValue = 'placeholder\x1A';
+
+        $markup = $DOMDocument->saveHTML($DOMDocument->documentElement);
+        $markup = str_replace('placeholder\x1A', $elementText, $markup);
+
+        return $markup;
+    }
+
+    # ~
+
+    protected function sortFootnotes($A, $B) # callback
+    {
+        return $A['number'] - $B['number'];
+    }
+
+    #
+    # Fields
+    #
+
+    protected $regexAttribute = '(?:[#.][-\w]+[ ]*)';
+}
+
+?>

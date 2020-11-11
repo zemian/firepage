@@ -1,13 +1,18 @@
 # Welcome to MarkNotes
 
-MarkNotes is a single `index.php` page application for managing Markdown notes.
+MarkNotes is a single `index.php` page application for managing Markdown files.
 
- * Project Home: https://github.com/zemian/marknotes
- * License: The MIT License (MIT)
- * Author: Zemian Deng
- * Date: 2020-11-04
+* Project Home: https://github.com/zemian/marknotes
+* Project Owner: Zemian Deng
+* License: [The MIT License (MIT)](index.php?file=license.md)
+* Release: [Notes](index.php?file=release.md)
 
-Go to [Admin](index.php?admin) mode to manage them!
+If this is a live site, go to [Admin](index.php?admin) to manage the files!
+(NOTE: This link will not work in GitHub project hosting for obviously reason: they don't support PHP!)
+
+A live demo is available [here](https://zemiancodeplayground.000webhostapp.com/marknotes/index.php).
+
+And some screenshots are available [here](https://zemian.github.io/2020/11/07/marknotes/).
 
 ## Features
 
@@ -17,43 +22,70 @@ Go to [Admin](index.php?admin) mode to manage them!
 * Display all Markdown files with `readme.md` as default page.
 * Support sub folders browsing up to 3 levels. Ignore all dot hidden folders.
 * Web based Admin interface to manage Markdown files.
-* Secure - never serve files outside where `index.php` is.
-* Secure - support Admin password.
+* Secure - Serve files from single directory only.
+* Secure - Support Admin password.
+* Configurable - Using optional `.marknotes.json` file.
 
 ## Getting Started
 
-To try it, run this:
+Copy the `index.php` file to a live web server's public folder. And that's it!
 
-	php -S localhost:3000
-	open http://localhost:3000
+Or to try it locally in your system. Install PHP and then run the following:
 
-By default the server will serve a directory named `notes` for all `*.md` files. 
+    git clone https://github.com/zemian/marknotes
+    cd marknotes
+    
+    php -S localhost:3000
+    open http://localhost:3000
 
-The application supports the following URL query parameters:
+By default the web server will serve the project directory for all `*.md` files, and you 
+can click on any file links listed to on menu to view them. Change the browser URL with `index.php?admin` to go into Admin page. In there you can manage all the Markdown files.
 
-* `?admin` - Go into Admin mode to manage the note files.
-* `?notes_dir=mynotes` - Change the directory where to look for Markdown files.
-* `?file=mynote.md` - View a note file directly.
+## Config Parameters
 
-## Config Parameters 
+The application supports the following config parameters that you may override using a `.marknotes.json` file 
+located where the `index.php` is. Or you may also specified config file using a server ENV variable
+named `MARKNOTES_CONFIG`.
 
-There are few config parameters that you can easily change on top of the `index.php` file. See the code comment
-for more details. You may change these by directly modifying the `index.php` file, or by creating a 
-`.marknotes.json` file where `index.php` is located.
+The Json file should contain a Json object. Below are the defualt values and you only need to specify the one
+you want to override.
+
+```
+{
+    "title": "Mark Notes",
+    "admin_password": "",
+    "max_menu_levels": 3,
+    "default_ext_list": [".md"],
+    "default_notes_dir": "",
+    "default_note": "readme.md",
+    "root_menu_label": ""
+}
+```
+
+### Config Descriptions
+
+* "title": Use to display the HTML title and Admin logo text.
+* "admin_password": Set to non empty to required password to enter into admin area.
+* "max_menu_levels": Max number of depth level to list for menu links (sub-folders).
+* "default_ext_list": Content file extensions allowed to be manage.
+* "default_notes_dir": Specify the root dir for note files. Blank means current dir.
+* "default_note": Default page to load in a notes dir.
+* "root_menu_label": Set a value to be displayed as root menu label.
 
 ## Admin Password
 
-The default Admin password is not set and note secured. You may set the password in `admin_password` 
-config Parameter mentioned above to secure it.
+The default Admin password is **not** set. You may set the password in `admin_password` config parameter 
+to non-empty value and it will prompt for login.
 
-## Design Notes
+## Third Party Dependencies
 
-We used [parsedown](https://github.com/erusev/parsedown) to render Markdown file. This library 
-is embedded inside the `index.php` in order to keep the goal of single page application.
+### Embedded in `index.php`
 
-For styling we use [Bulma CSS](https://unpkg.com/bulma). If you don't want to have to have external internet
-access at all, then simply download it and replace the `<link>` element in the `index.php` file.
+* [parsedown](https://github.com/erusev/parsedown) A PHP parser to render Markdown file.
+* [parsedown-extra](https://github.com/erusev/parsedown-extra) Support Markdown extra features.
 
-We also use [CodeMirror](https://unpkg.com/codemirror) to enhance Editor and syntax highlight. Again, 
-this will access external internet. But even if it's not able to load, the fall back HTML textarea will work
-just fine.
+### External Dependencies
+
+For styling we use [Bulma CSS](https://unpkg.com/bulma). It's access through `unpkg.com` CDN directly.
+
+We also use [CodeMirror](https://unpkg.com/codemirror) to enhance Editor and syntax highlight.
