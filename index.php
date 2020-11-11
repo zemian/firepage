@@ -5,12 +5,17 @@
  * Project Home: https://github.com/zemian/marknotes
  * License: The MIT License (MIT)
  * Author: Zemian Deng
- * Date: 2020-11-04
  */
 
 //
 // ## MarkNotes
 //
+
+// Global Vars
+define('MARKNOTES_VERSION', '1.3.0-SNAPSHOT');
+define('MARKNOTES_CONFIG_ENV_KEY', 'MARKNOTES_CONFIG');
+define('MARKNOTES_CONFIG_NAME', '.marknotes.json');
+define('MARKNOTES_ROOT_DIR', __DIR__);
 
 // MarkNotes Config Parameters
 // - You may override these with ".marknotes.json" config file.
@@ -23,12 +28,6 @@ $config = array(
     'default_note' => 'readme.md',
     'root_menu_label' => ''
 );
-
-// Global Vars
-define('MARKNOTES_VERSION', '1.3.0-SNAPSHOT');
-define('MARKNOTES_CONFIG_ENV_KEY', 'MARKNOTES_CONFIG');
-define('MARKNOTES_CONFIG_NAME', '.marknotes.json');
-define('MARKNOTES_ROOT_DIR', __DIR__);
 
 //
 // ### The MarkNotes Application
