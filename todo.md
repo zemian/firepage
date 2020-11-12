@@ -6,6 +6,7 @@
 * [ ] feature: Theme
 * [ ] task: Add test/sites/run.sh
 * [ ] task: Improve echo_menu_links to pass max_level
+* [ ] task: Add user-guide and dev-guide
 
 ## Ideas
 
@@ -15,3 +16,4 @@
 * Docs Theme
 * Markdown Outline Display
 * REST API for content
+* Pretty URL support
