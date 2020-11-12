@@ -23,27 +23,28 @@ define('MARKNOTES_ROOT_DIR', __DIR__);
 class MarkNotesApp {
     
     function __construct() {
-        // Config property
-        // - Allow external file override
+        // Read in external config file for override
         $config_file = getenv(MARKNOTES_CONFIG_ENV_KEY) ?: (__DIR__ . "/" . MARKNOTES_CONFIG_NAME);
         $config = $this->read_config($config_file);
 
+        // Config parameters
         $this->title = $config['title'] ?? 'MarkNotes';
         $this->admin_password = $config['admin_password'] ?? '';
-        $this->max_menu_levels = $config['max_menu_levels'] ?? 3;
-        $this->default_ext_list = $config['default_ext_list'] ?? ['.md'];
-        $this->default_notes_dir = $config['default_notes_dir'] ?? '';
-        $this->default_note = $config['default_note'] ?? 'readme.md';
         $this->root_menu_label = $config['root_menu_label'] ?? '';
+        $this->max_menu_levels = $config['max_menu_levels'] ?? 3;
+        $this->default_dir_name = $config['default_dir_name'] ?? '';
+        $this->default_file_name = $config['default_file_name'] ?? 'readme.md';
+        $this->file_extension_list = $config['file_extension_list'] ?? ['.md'];
+        $this->root_dir = ($config['root_dir'] ?? '') ?: MARKNOTES_ROOT_DIR;
         
+        // Init service
         $this->init_parsedown();
-        $this->root_dir = $this->default_notes_dir ?: MARKNOTES_ROOT_DIR;
 
         // Page property
         $this->page = new class ($this) {
             function __construct($app) {
                 $this->action = $_GET['action'] ?? 'file'; // Default action is to GET file
-                $this->file = $_GET['file'] ?? $app->default_note;
+                $this->file = $_GET['file'] ?? $app->default_file_name;
                 $this->notes_dir = $_GET['notes_dir'] ?? '';
                 $this->is_admin = isset($_GET['admin']);
                 $this->url_path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
@@ -54,7 +55,7 @@ class MarkNotesApp {
                 // Calculate controller path
                 $this->controller = $this->url_path . '?' . ($this->is_admin ? 'admin=true&' : '');
                 // If notes dir is not default, ensure we retain it on next request in the controller.
-                if ($this->notes_dir !== $app->default_notes_dir) {
+                if ($this->notes_dir !== $app->default_dir_name) {
                     $this->controller .= "notes_dir={$this->notes_dir}&";
                 }
             }
@@ -194,7 +195,7 @@ class MarkNotesApp {
         $files = array_slice(scandir($dir), 2);
         foreach ($files as $file) {
             if (is_file("$dir/$file") && $file !== MARKNOTES_CONFIG_NAME) {
-                foreach ($this->default_ext_list as $ext) {
+                foreach ($this->file_extension_list as $ext) {
                     if (!$this->starts_with($file, '.') && $this->ends_with($file, $ext)) {
                         array_push($ret, $file);
                         break;
@@ -286,7 +287,7 @@ class MarkNotesApp {
     }
     
     function validate_note_name($name, $is_exists_check) {
-        $ext_list = $this->default_ext_list;
+        $ext_list = $this->file_extension_list;
         $max_depth = $this->max_menu_levels;
         $error = 'Invalid name: ';
         $n = strlen($name);

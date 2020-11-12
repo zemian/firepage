@@ -52,25 +52,27 @@ you want to override.
 
 ```
 {
+    "root_dir": ""
     "title": "Mark Notes",
     "admin_password": "",
-    "max_menu_levels": 3,
-    "default_ext_list": [".md"],
-    "default_notes_dir": "",
-    "default_note": "readme.md",
     "root_menu_label": ""
+    "max_menu_levels": 3,
+    "default_dir_name": "",
+    "default_file_name": "readme.md",
+    "file_extension_list": [".md"],
 }
 ```
 
 ### Config Descriptions
 
+* "root_dir": Directory where to read Markdown files. Empty means relative to where `index.php` is.
 * "title": Use to display the HTML title and Admin logo text.
 * "admin_password": Set to non empty to required password to enter into admin area.
-* "max_menu_levels": Max number of depth level to list for menu links (sub-folders).
-* "default_ext_list": Content file extensions allowed to be manage.
-* "default_notes_dir": Specify the root dir for note files. Blank means current dir.
-* "default_note": Default page to load in a notes dir.
 * "root_menu_label": Set a value to be displayed as root menu label.
+* "max_menu_levels": Max number of depth level to list for menu links (sub-folders).
+* "default_dir_name": Specify the root dir for note files. Empty means relative to where `index.php` is.
+* "default_file_name": Default page to load in a notes dir.
+* "file_extension_list": Content file extensions allowed to be manage.
 
 ## Admin Password
 
