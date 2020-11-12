@@ -47,7 +47,7 @@ The application supports the following config parameters that you may override u
 located where the `index.php` is. Or you may also specified config file using a server ENV variable
 named `MARKNOTES_CONFIG`.
 
-The Json file should contain a Json object. Below are the defualt values and you only need to specify the one
+The Json file should contain a Json object. Below are the default values and you only need to specify the one
 you want to override.
 
 ```
@@ -74,7 +74,8 @@ you want to override.
 * "default_dir_name": Specify the root dir for note files. Empty means relative to where `index.php` is.
 * "default_file_name": Default page to load in a notes dir.
 * "file_extension_list": Content file extensions allowed to be manage.
-* "exclude_file_list": List of file or directory to exclude relative from `root_dir`.
+* "exclude_file_list": List of file or directory to exclude relative from `root_dir`. If set, these won't even display
+  in the admin interface.
 * "menu_links": Manually set a menu links. Omit this entry and the menu links will be auto generated based on dirs/files listing.
     ```  
       "menu_links": {
@@ -88,6 +89,18 @@ you want to override.
           { "order": 4, "label" : "License", "file": "license.md" }
         ],
         "child_menu_links": []
+      }
+    ```
+* "files_to_menu_links": Optionally remap file or dir name in generated menu_links with better label or hide it completely.
+  If `hide` attribute is set, then it only hide from menu link, but it will still shows in Admin interface.
+    ```
+      "files_to_menu_links": {
+        "readme.md" : { "order": 0, "label" : "Home" },
+        "sample.md" : { "order": 1, "label" : "Markdown Sample" },
+        "release.md" : { "order":2, "label" : "Release Notes" },
+        "license.md" : { "order": 3, "label" : "License" },
+        "todo.md" : { "hide": true },
+        "temp" : { "hide": true }
       }
     ```
 

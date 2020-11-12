@@ -38,6 +38,7 @@ class MarkNotesApp {
         $this->file_extension_list = $config['file_extension_list'] ?? ['.md'];
         $this->exclude_file_list = $config['exclude_file_list'] ?? [];
         $this->menu_links = $config['menu_links'] ?? null;
+        $this->files_to_menu_links = $config['files_to_menu_links'] ?? [];
         
         // Init service
         $this->init_parsedown();
@@ -369,6 +370,33 @@ class MarkNotesApp {
         }
     }
     
+    function remap_menu_links(&$menu_link) {
+        if (count($this->files_to_menu_links) === 0) {
+            return;
+        }
+        $map = $this->files_to_menu_links;
+        foreach ($menu_link['links'] as $idx => &$link) {
+            $file = $link['file'];
+            if (array_key_exists($file, $map)) {
+                $new_link = $map[$file];
+                if (isset($new_link['hide'])) {
+                    unset($menu_link['links'][$idx]);
+                } else {
+                    $link = array_merge($link, $map[$file]);
+                }
+            }
+        }
+
+        foreach ($menu_link['child_menu_links'] as $idx => &$child_menu_links_item) {
+            $menu_dir = $child_menu_links_item['menu_dir'];
+            if (array_key_exists($menu_dir, $map) && isset($map[$menu_dir]['hide'])) {
+                unset($menu_link['child_menu_links'][$idx]);
+            } else {
+                $this->remap_menu_links($child_menu_links_item);
+            }
+        }
+    }
+    
     function get_menu_links() {
         $menu_links = null;
         if ($this->page->is_admin) {
@@ -380,6 +408,7 @@ class MarkNotesApp {
             } else {
                 // Else, auto generate menu_links bsaed on dirs/files listing
                 $menu_links = $this->get_menu_links_tree($this->page->notes_dir, $this->max_menu_levels);
+                $this->remap_menu_links($menu_links);
             }
             $this->sort_menu_links($menu_links);
         }
@@ -395,6 +424,7 @@ class MarkNotesApp {
             "menu_label" => null,
             "menu_name" => null,
             "menu_order" => $menu_order,
+            "menu_dir" => $dir,
             "links" => [],
             "child_menu_links" => []
         );

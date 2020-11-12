@@ -9,3 +9,4 @@
 * [x] Add config parameter 'exclude_file_list'
 * [x] Add syntax highlight for `.json` and `.html` in editor
 * [x] Add config parameter 'menu_links' for custom links rendering
+* [x] Add config parameter 'files_to_menu_links' for remapping menu links
