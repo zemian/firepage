@@ -28,6 +28,7 @@ class MarkNotesApp {
         $config = $this->read_config($config_file);
 
         // Config parameters
+        $this->root_dir = ($config['root_dir'] ?? '') ?: MARKNOTES_DEAFULT_ROOT_DIR;
         $this->title = $config['title'] ?? 'MarkNotes';
         $this->admin_password = $config['admin_password'] ?? '';
         $this->root_menu_label = $config['root_menu_label'] ?? 'Notes';
@@ -35,7 +36,7 @@ class MarkNotesApp {
         $this->default_dir_name = $config['default_dir_name'] ?? '';
         $this->default_file_name = $config['default_file_name'] ?? 'readme.md';
         $this->file_extension_list = $config['file_extension_list'] ?? ['.md'];
-        $this->root_dir = ($config['root_dir'] ?? '') ?: MARKNOTES_DEAFULT_ROOT_DIR;
+        $this->exclude_file_list = $config['exclude_file_list'] ?? [];
         
         // Init service
         $this->init_parsedown();
@@ -188,13 +189,29 @@ class MarkNotesApp {
         $len = strlen($sub_str);
         return substr_compare($str, $sub_str, 0, $len) === 0;
     }
+    
+    function is_file_excluded($dir_file) {
+        if (count($this->exclude_file_list) > 0) {
+            foreach($this->exclude_file_list as $exclude) {
+                // Exclude in relative to the root_dir
+                if ($this->starts_with("$dir_file", "$this->root_dir/$exclude")) {
+                    return true; // break
+                }
+            }
+        }
+        return false;
+    }
 
     function get_files($sub_path = '') {
         $ret = [];
         $dir = $this->root_dir . ($sub_path ? "/$sub_path" : '');
         $files = array_slice(scandir($dir), 2);
         foreach ($files as $file) {
-            if (is_file("$dir/$file") && $file !== MARKNOTES_CONFIG_NAME) {
+            $dir_file = "$dir/$file";
+            if (is_file($dir_file) && $file !== MARKNOTES_CONFIG_NAME) {
+                if ($this->is_file_excluded($dir_file)) {
+                    continue;
+                }
                 foreach ($this->file_extension_list as $ext) {
                     if (!$this->starts_with($file, '.') && $this->ends_with($file, $ext)) {
                         array_push($ret, $file);
@@ -211,9 +228,10 @@ class MarkNotesApp {
         $dir = $this->root_dir . ($sub_path ? "/$sub_path" : '');
         $files = array_slice(scandir($dir), 2);
         foreach ($files as $file) {
-            if (is_dir("$dir/$file")) {
-                // Do not include hidden dot folders
-                if (!$this->starts_with($file, '.')) {
+            $dir_file = "$dir/$file";
+            if (is_dir($dir_file)) {
+                // Do not include hidden dot folders or from exclusion list
+                if (!$this->starts_with($file, '.') && !$this->is_file_excluded($dir_file)) {
                     array_push($ret, $file);
                 }
             }

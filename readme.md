@@ -59,7 +59,8 @@ you want to override.
     "max_menu_levels": 2,
     "default_dir_name": "",
     "default_file_name": "readme.md",
-    "file_extension_list": [".md"]
+    "file_extension_list": [".md"],
+    "exclude_file_list": []
 }
 ```
 
@@ -73,6 +74,7 @@ you want to override.
 * "default_dir_name": Specify the root dir for note files. Empty means relative to where `index.php` is.
 * "default_file_name": Default page to load in a notes dir.
 * "file_extension_list": Content file extensions allowed to be manage.
+* "exclude_file_list": List of file or directory to exclude relative from `root_dir`.
 
 ## Admin Password
 
