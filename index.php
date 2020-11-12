@@ -30,7 +30,7 @@ class MarkNotesApp {
         // Config parameters
         $this->title = $config['title'] ?? 'MarkNotes';
         $this->admin_password = $config['admin_password'] ?? '';
-        $this->root_menu_label = $config['root_menu_label'] ?? '';
+        $this->root_menu_label = $config['root_menu_label'] ?? 'Notes';
         $this->max_menu_levels = $config['max_menu_levels'] ?? 3;
         $this->default_dir_name = $config['default_dir_name'] ?? '';
         $this->default_file_name = $config['default_file_name'] ?? 'readme.md';
@@ -45,7 +45,7 @@ class MarkNotesApp {
             function __construct($app) {
                 $this->action = $_GET['action'] ?? 'file'; // Default action is to GET file
                 $this->file = $_GET['file'] ?? $app->default_file_name;
-                $this->notes_dir = $_GET['notes_dir'] ?? '';
+                $this->notes_dir = $_GET['notes_dir'] ?? $app->default_dir_name;
                 $this->is_admin = isset($_GET['admin']);
                 $this->url_path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
                 $this->file_content = null;
