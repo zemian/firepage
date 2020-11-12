@@ -1,6 +1,7 @@
 ## Todo List
 
 * [ ] bug: Root menu label has space between each letters if all caps
+* [ ] bug: Readme link to release and license does not work in GitHub
 * [ ] feature: Search API
 * [ ] feature: Theme
 * [ ] task: Add test/sites/run.sh
