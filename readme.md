@@ -81,7 +81,9 @@ The Json file should contain a Json object. Below are the default values if you 
 
 Below config parameters will have default values of `NULL` if omitted.
 
-* "menu_links": Manually set a menu links. Omit this entry and the menu links will be auto generated based on dirs/files listing.
+* "menu_links": Manually set a menu links. Omit this entry and the menu links will be auto generated based on 
+  dirs/files listing. Note that the `child_menu_links` can contain a list of `menu_links` with the same structure 
+  (recursive for nested menus).
     ```  
       "menu_links": {
         "menu_label": "Notes",
@@ -97,7 +99,8 @@ Below config parameters will have default values of `NULL` if omitted.
       }
     ```
 * "files_to_menu_links": Remap file or dir name in generated menu_links with better label or hide it completely.
-  If `hide` attribute is set, then it only hide from menu link, but it will still shows in Admin interface.
+  If `hide` attribute is set, then it only hide the file from menu link, but it will still shows in Admin interface. 
+  If the entry match to a folder (menu dir path), then an the entire folder will be hidden.
     ```
       "files_to_menu_links": {
         "readme.md" : { "order": 0, "label" : "Home" },
