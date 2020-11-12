@@ -7,5 +7,5 @@
 * [x] Rename config parameter 'default_notes_dir' => 'default_dir_name'
 * [x] Add config parameter 'root_dir'
 * [x] Add config parameter 'exclude_file_list'
+* [x] Add syntax highlight for `.json` and `.html` in editor
 * [ ] Add menu links override for ordering and label
-* [ ] Add syntax highlight for `.json` and `.html` in editor

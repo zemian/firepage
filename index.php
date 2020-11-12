@@ -400,14 +400,6 @@ $page = $app->process_request();
 
     <?php if ($page->is_admin && ($page->action === 'new' || $page->action === 'edit')) { ?>
         <link rel="stylesheet" href="https://unpkg.com/codemirror@5.58.2/lib/codemirror.css">
-        <script src="https://unpkg.com/codemirror@5.58.2/lib/codemirror.js"></script>
-        <script src="https://unpkg.com/codemirror@5.58.2/addon/mode/overlay.js"></script>
-        <script src="https://unpkg.com/codemirror@5.58.2/mode/javascript/javascript.js"></script>
-        <script src="https://unpkg.com/codemirror@5.58.2/mode/css/css.js"></script>
-        <script src="https://unpkg.com/codemirror@5.58.2/mode/xml/xml.js"></script>
-        <script src="https://unpkg.com/codemirror@5.58.2/mode/htmlmixed/htmlmixed.js"></script>
-        <script src="https://unpkg.com/codemirror@5.58.2/mode/markdown/markdown.js"></script>
-        <script src="https://unpkg.com/codemirror@5.58.2/mode/gfm/gfm.js"></script>
     <?php } ?>
     
     <title><?php echo $app->title; ?></title>
@@ -483,7 +475,7 @@ $page = $app->process_request();
                             <input type="hidden" name="action" value="new_submit">
                             <div class="field">
                                 <div class="label">File Name</div>
-                                <div class="control"><input class="input" type="text" name="file" value="<?php echo $page->file ?>"></div>
+                                <div class="control"><input id='file_name' class="input" type="text" name="file" value="<?php echo $page->file ?>"></div>
                             </div>
                             <div class="field">
                                 <div class="label">Markdown</div>
@@ -501,7 +493,7 @@ $page = $app->process_request();
                             <input type="hidden" name="action" value="edit_submit">
                             <div class="field">
                                 <div class="label">File Name</div>
-                                <div class="control"><input class="input" type="text" name="file" value="<?= $page->file ?>"></div>
+                                <div class="control"><input id='file_name' class="input" type="text" name="file" value="<?= $page->file ?>"></div>
                             </div>
                             <div class="field">
                                 <div class="label">Markdown</div>
@@ -547,14 +539,43 @@ $page = $app->process_request();
             </div>
         </section>
         <?php if ($page->action === 'new' || $page->action === 'edit') { ?>
+            <script src="https://unpkg.com/codemirror@5.58.2/lib/codemirror.js"></script>
+            <script src="https://unpkg.com/codemirror@5.58.2/addon/mode/overlay.js"></script>
+            <script src="https://unpkg.com/codemirror@5.58.2/mode/javascript/javascript.js"></script>
+            <script src="https://unpkg.com/codemirror@5.58.2/mode/css/css.js"></script>
+            <script src="https://unpkg.com/codemirror@5.58.2/mode/xml/xml.js"></script>
+            <script src="https://unpkg.com/codemirror@5.58.2/mode/htmlmixed/htmlmixed.js"></script>
+            <script src="https://unpkg.com/codemirror@5.58.2/mode/markdown/markdown.js"></script>
+            <script src="https://unpkg.com/codemirror@5.58.2/mode/gfm/gfm.js"></script>
             <script>
+                function getCodeMirrorMode(fileName) {
+                    var mode = fileName.split('.').pop();
+                    if (mode === 'md') {
+                        // ext = 'markdown';
+                        mode = 'gfm'; // Use GitHub Flavor Markdown
+                    } else if (mode === 'json') {
+                        mode = {name: 'javascript', json: true};
+                    } else if (mode === 'html') {
+                        mode = 'htmlmixed';
+                    }
+                    return mode;
+                }
+                
                 // Load CodeMirror with Markdown (GitHub Flavor Markdown) syntax highlight
+                var fileNameEl = document.getElementById('file_name');
                 var editor = CodeMirror.fromTextArea(document.getElementById('file_content'), {
                     lineNumbers: true,
-                    mode: 'gfm',
+                    mode: getCodeMirrorMode(fileNameEl.value),
                     theme: 'default',
                 });
                 editor.setSize(null, '500');
+                
+                // Listen to FileName focus change then trigger editor mode change
+                fileNameEl.addEventListener('focusout', (event) => {
+                    var name = event.target.value;
+                    var mode = getCodeMirrorMode(name);
+                    editor.setOption('mode', mode);
+                });
             </script>
         <?php } /* End of new/edit form for <script> tag */?>
     <?php } else { /* Not admin page */?>
