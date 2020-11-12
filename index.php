@@ -59,9 +59,14 @@ class MarkNotesApp {
             }
         };
         
-        $this->root_dir = MARKNOTES_ROOT_DIR . ($this->page->notes_dir ? "/{$this->page->notes_dir}"  : '');
-        $this->file_ext_list = $this->config['default_ext_list'];
-        $this->parsedown = new ParsedownExtra();
+        $this->root_dir = $this->config['default_notes_dir'] ?? '' ?: MARKNOTES_ROOT_DIR;
+        $this->file_ext_list = $this->config['default_ext_list'] ?? ['.md'];
+        
+        $this->init_parsedown();
+    }
+    
+    function init_parsedown() {
+        $this->parsedown = new ParsedownExtra();        
     }
 
     function process_request() {
@@ -199,7 +204,7 @@ class MarkNotesApp {
         foreach ($files as $file) {
             if (is_file("$dir/$file") && $file !== MARKNOTES_CONFIG_NAME) {
                 foreach ($this->file_ext_list as $ext) {
-                    if ($this->ends_with($file, $ext)) {
+                    if (!$this->starts_with($file, '.') && $this->ends_with($file, $ext)) {
                         array_push($ret, $file);
                         break;
                     }
