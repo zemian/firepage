@@ -20,11 +20,12 @@ And some screenshots are available [here](https://zemian.github.io/2020/11/07/ma
 * Easy copy and deploy `index.php` to any web folder.
 * Clean and simple UI style with Markdown editing syntax highlight.
 * Display all Markdown files with `readme.md` as default page.
-* Support sub folders browsing up to 3 levels. Ignore all dot hidden folders.
-* Web based Admin interface to manage Markdown files.
-* Secure - Serve files from single directory only.
+* Easy menu links to files with sub folders support.
+* Admin - Web based interface to create, edit and delete Markdown files.
 * Secure - Support Admin password.
-* Configurable - Using optional `.marknotes.json` file.
+* Secure - Serve files from single directory only.
+* Secure - Auto ignore all dot hidden folders and files.
+* Configurable - Using optional `.marknotes.json` config file.
 
 ## Getting Started
 
