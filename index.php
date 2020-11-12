@@ -15,7 +15,7 @@
 define('MARKNOTES_VERSION', '1.3.0-SNAPSHOT');
 define('MARKNOTES_CONFIG_ENV_KEY', 'MARKNOTES_CONFIG');
 define('MARKNOTES_CONFIG_NAME', '.marknotes.json');
-define('MARKNOTES_ROOT_DIR', __DIR__);
+define('MARKNOTES_DEAFULT_ROOT_DIR', __DIR__);
 
 //
 // ### The MarkNotes Application
@@ -24,7 +24,7 @@ class MarkNotesApp {
     
     function __construct() {
         // Read in external config file for override
-        $config_file = getenv(MARKNOTES_CONFIG_ENV_KEY) ?: (__DIR__ . "/" . MARKNOTES_CONFIG_NAME);
+        $config_file = getenv(MARKNOTES_CONFIG_ENV_KEY) ?: (MARKNOTES_DEAFULT_ROOT_DIR . "/" . MARKNOTES_CONFIG_NAME);
         $config = $this->read_config($config_file);
 
         // Config parameters
@@ -35,7 +35,7 @@ class MarkNotesApp {
         $this->default_dir_name = $config['default_dir_name'] ?? '';
         $this->default_file_name = $config['default_file_name'] ?? 'readme.md';
         $this->file_extension_list = $config['file_extension_list'] ?? ['.md'];
-        $this->root_dir = ($config['root_dir'] ?? '') ?: MARKNOTES_ROOT_DIR;
+        $this->root_dir = ($config['root_dir'] ?? '') ?: MARKNOTES_DEAFULT_ROOT_DIR;
         
         // Init service
         $this->init_parsedown();

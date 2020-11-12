@@ -1,4 +1,5 @@
 ### Next Release Work
+* [x] Improve index.php with MarkNotesApp class
 * [x] Fix session failed to start
 * [x] Fix exclusion of got files
 * [x] Rename config 'default_note' => 'default_file_name'
