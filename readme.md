@@ -56,7 +56,7 @@ you want to override.
     "title": "Mark Notes",
     "admin_password": "",
     "root_menu_label": "Notes",
-    "max_menu_levels": 3,
+    "max_menu_levels": 2,
     "default_dir_name": "",
     "default_file_name": "readme.md",
     "file_extension_list": [".md"]

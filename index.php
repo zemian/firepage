@@ -31,7 +31,7 @@ class MarkNotesApp {
         $this->title = $config['title'] ?? 'MarkNotes';
         $this->admin_password = $config['admin_password'] ?? '';
         $this->root_menu_label = $config['root_menu_label'] ?? 'Notes';
-        $this->max_menu_levels = $config['max_menu_levels'] ?? 3;
+        $this->max_menu_levels = $config['max_menu_levels'] ?? 2;
         $this->default_dir_name = $config['default_dir_name'] ?? '';
         $this->default_file_name = $config['default_file_name'] ?? 'readme.md';
         $this->file_extension_list = $config['file_extension_list'] ?? ['.md'];
