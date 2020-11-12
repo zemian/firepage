@@ -17,52 +17,48 @@ define('MARKNOTES_CONFIG_ENV_KEY', 'MARKNOTES_CONFIG');
 define('MARKNOTES_CONFIG_NAME', '.marknotes.json');
 define('MARKNOTES_ROOT_DIR', __DIR__);
 
-// MarkNotes Config Parameters
-// - You may override these with ".marknotes.json" config file.
-$config = array(
-    'title' => 'MarkNotes',
-    'admin_password' => '',
-    'max_menu_levels' => 3,
-    'default_ext_list' => ['.md'],
-    'default_notes_dir' => '',
-    'default_note' => 'readme.md',
-    'root_menu_label' => ''
-);
-
 //
 // ### The MarkNotes Application
 // 
 class MarkNotesApp {
     
-    function __construct($config) {
+    function __construct() {
         // Config property
         // - Allow external file override
-        $_env_config = getenv(MARKNOTES_CONFIG_ENV_KEY);
-        $_config_file = $_env_config === false ? (__DIR__ . "/" . MARKNOTES_CONFIG_NAME) : $_env_config;
-        $this->config = array_merge($config, $this->read_config($_config_file));
+        $config_file = getenv(MARKNOTES_CONFIG_ENV_KEY) ?: (__DIR__ . "/" . MARKNOTES_CONFIG_NAME);
+        $config = $this->read_config($config_file);
 
-        // Page property
-        $this->page = new class ($this->config) {
-            function __construct($config) {
-                $this->action = $_GET['action'] ?? "file"; // Default action is to GET file
-                $this->file = $_GET['file'] ?? $config['default_note'];
-                $this->notes_dir = $_GET['notes_dir'] ?? $config['default_notes_dir'];
-                $this->is_admin = isset($_GET['admin']);
-                $this->url_path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
-                $this->controller = $this->url_path . '?' . ($this->is_admin ? 'admin=true&' : '');
-                $this->title = $config['title'];
-                $this->max_menu_levels = $config['max_menu_levels'];
-                $this->form_error = null;
-                $this->delete_status = null;
-                $this->file_content = null;
-                $this->file_content_formatted = null;
-            }
-        };
-        
-        $this->root_dir = $this->config['default_notes_dir'] ?? '' ?: MARKNOTES_ROOT_DIR;
-        $this->file_ext_list = $this->config['default_ext_list'] ?? ['.md'];
+        $this->title = $config['title'] ?? 'MarkNotes';
+        $this->admin_password = $config['admin_password'] ?? '';
+        $this->max_menu_levels = $config['max_menu_levels'] ?? 3;
+        $this->default_ext_list = $config['default_ext_list'] ?? ['.md'];
+        $this->default_notes_dir = $config['default_notes_dir'] ?? '';
+        $this->default_note = $config['default_note'] ?? 'readme.md';
+        $this->root_menu_label = $config['root_menu_label'] ?? '';
         
         $this->init_parsedown();
+        $this->root_dir = $this->default_notes_dir ?: MARKNOTES_ROOT_DIR;
+
+        // Page property
+        $this->page = new class ($this) {
+            function __construct($app) {
+                $this->action = $_GET['action'] ?? 'file'; // Default action is to GET file
+                $this->file = $_GET['file'] ?? $app->default_note;
+                $this->notes_dir = $_GET['notes_dir'] ?? '';
+                $this->is_admin = isset($_GET['admin']);
+                $this->url_path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+                $this->file_content = null;
+                $this->form_error = null;
+                $this->delete_status = null;
+
+                // Calculate controller path
+                $this->controller = $this->url_path . '?' . ($this->is_admin ? 'admin=true&' : '');
+                // If notes dir is not default, ensure we retain it on next request in the controller.
+                if ($this->notes_dir !== $app->default_notes_dir) {
+                    $this->controller .= "notes_dir={$this->notes_dir}&";
+                }
+            }
+        };
     }
     
     function init_parsedown() {
@@ -84,11 +80,6 @@ class MarkNotesApp {
         
         // Process Request and return $this->page var
         $action = $this->page->action;
-        
-        // If notes dir is not default, ensure we retain it on next request in the controller.
-        if ($this->page->notes_dir !== $this->config['default_notes_dir']) {
-            $this->page->controller .= "notes_dir={$this->page->notes_dir}&";
-        }
 
         // Process POST requests
         if (isset($_POST['action'])) {
@@ -97,7 +88,7 @@ class MarkNotesApp {
             $action = $this->page->action;
             if ($action === 'login_submit') {
                 $password = $_POST['password'];
-                $admin_password = $this->config['admin_password'];
+                $admin_password = $this->admin_password;
                 
                 $this->page->form_error = $this->login($password, $admin_password);
                 if ($this->page->form_error === null) {
@@ -203,7 +194,7 @@ class MarkNotesApp {
         $files = array_slice(scandir($dir), 2);
         foreach ($files as $file) {
             if (is_file("$dir/$file") && $file !== MARKNOTES_CONFIG_NAME) {
-                foreach ($this->file_ext_list as $ext) {
+                foreach ($this->default_ext_list as $ext) {
                     if (!$this->starts_with($file, '.') && $this->ends_with($file, $ext)) {
                         array_push($ret, $file);
                         break;
@@ -283,7 +274,7 @@ class MarkNotesApp {
     }
 
     function is_password_enabled() {
-        return $this->config['admin_password'] !== '';
+        return $this->admin_password !== '';
     }
 
     function is_logged_in() {
@@ -295,8 +286,8 @@ class MarkNotesApp {
     }
     
     function validate_note_name($name, $is_exists_check) {
-        $ext_list = $this->config['default_ext_list'];
-        $max_depth = $this->config['max_menu_levels'];
+        $ext_list = $this->default_ext_list;
+        $max_depth = $this->max_menu_levels;
         $error = 'Invalid name: ';
         $n = strlen($name);
         $ext_words = implode('|', $ext_list);
@@ -334,7 +325,7 @@ class MarkNotesApp {
 
     function echo_menu_links($notes_dir, $active_file, $max_levels) {
         $base_name = basename($notes_dir);
-        $menu_label = $base_name ?: $this->config['root_menu_label'];
+        $menu_label = $base_name ?: $this->root_menu_label;
         echo "<p class='menu-label'>$menu_label</p>";
         echo "<ul class='menu-list'>";
 
@@ -376,7 +367,7 @@ class MarkNotesApp {
 // ### App Entry
 // - Note that you must not generate any output before starting the PHP session!
 //
-$app = new MarkNotesApp($config);
+$app = new MarkNotesApp();
 $page = $app->process_request();
 ?>
 <!doctype html>
@@ -400,7 +391,7 @@ $page = $app->process_request();
         <script src="https://unpkg.com/codemirror@5.58.2/mode/gfm/gfm.js"></script>
     <?php } ?>
     
-    <title><?php echo $page->title; ?></title>
+    <title><?php echo $app->title; ?></title>
 </head>
 <body>
 
@@ -408,7 +399,7 @@ $page = $app->process_request();
     <div class="navbar">
         <div class="navbar-brand">
             <div class="navbar-item">
-                <a class="title" href='<?php echo $page->controller; ?>'><?php echo $page->title; ?></a>
+                <a class="title" href='<?php echo $page->controller; ?>'><?php echo $app->title; ?></a>
             </div>
         </div>
         <div class="navbar-end">
@@ -462,7 +453,7 @@ $page = $app->process_request();
                         <?php } ?>
                     </ul>
         
-                    <?php $app->echo_menu_links($page->notes_dir, $page->file, $page->max_menu_levels); ?>
+                    <?php $app->echo_menu_links($page->notes_dir, $page->file, $app->max_menu_levels); ?>
                 </div>
                 <div class="column is-9">
                     <?php if ($page->action === 'new' || $page->action === 'new_submit') { ?>
@@ -550,8 +541,8 @@ $page = $app->process_request();
     <?php } else { /* Not admin page */?>
         <section class="section">
             <div class="columns">
-                <div class="column is-3 menu">        
-                    <?php $app->echo_menu_links($page->notes_dir, $page->file, $page->max_menu_levels); ?>
+                <div class="column is-3 menu">
+                    <?php $app->echo_menu_links($page->notes_dir, $page->file, $app->max_menu_levels); ?>
                 </div>
                 <div class="column is-9">
                     <div class="content">
