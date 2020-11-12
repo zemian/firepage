@@ -8,4 +8,4 @@
 * [x] Add config parameter 'root_dir'
 * [x] Add config parameter 'exclude_file_list'
 * [x] Add syntax highlight for `.json` and `.html` in editor
-* [ ] Add menu links override for ordering and label
+* [x] Add config parameter 'menu_links' for custom links rendering

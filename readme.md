@@ -75,6 +75,21 @@ you want to override.
 * "default_file_name": Default page to load in a notes dir.
 * "file_extension_list": Content file extensions allowed to be manage.
 * "exclude_file_list": List of file or directory to exclude relative from `root_dir`.
+* "menu_links": Manually set a menu links. Omit this entry and the menu links will be auto generated based on dirs/files listing.
+    ```  
+      "menu_links": {
+        "menu_label": "Notes",
+        "menu_name": "",
+        "menu_order": 1,
+        "links": [
+          { "order": 1, "label" : "Home", "file": "readme.md" },
+          { "order": 2, "label" : "Markdown Sample", "file": "sample.md" },
+          { "order": 3, "label" : "Release Notes", "file": "release.md" },
+          { "order": 4, "label" : "License", "file": "license.md" }
+        ],
+        "child_menu_links": []
+      }
+    ```
 
 ## Admin Password
 

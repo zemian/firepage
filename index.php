@@ -37,10 +37,11 @@ class MarkNotesApp {
         $this->default_file_name = $config['default_file_name'] ?? 'readme.md';
         $this->file_extension_list = $config['file_extension_list'] ?? ['.md'];
         $this->exclude_file_list = $config['exclude_file_list'] ?? [];
+        $this->menu_links = $config['menu_links'] ?? null;
         
         // Init service
         $this->init_parsedown();
-
+        
         // Page property
         $this->page = new class ($this) {
             function __construct($app) {
@@ -263,7 +264,12 @@ class MarkNotesApp {
     function read_config($config_file) {
         if (file_exists($config_file)) {
             $json = file_get_contents($config_file);
-            return json_decode($json, true);
+            $config = json_decode($json, true);
+            if ($config === null) {
+                die("Invalid config JSON file: $config_file");
+            }
+            
+            return $config;
         }
         return array();
     }
@@ -342,33 +348,104 @@ class MarkNotesApp {
         return $error;
     }
 
-    function echo_menu_links($notes_dir, $active_file, $max_levels) {
-        $base_name = basename($notes_dir);
-        $menu_label = $base_name ?: $this->root_menu_label;
-        echo "<p class='menu-label'>$menu_label</p>";
+    // We need to accept array reference so we can modify array in-place!
+    function sort_menu_links(&$menu_links) {
+        usort($menu_links['links'], function ($a, $b) {
+            $ret = $a['order'] <=> $b['order'];
+            if ($ret === 0) {
+                $ret = $a['label'] <=> $b['label'];
+            }
+            return $ret;
+        });
+        usort($menu_links['child_menu_links'], function ($a, $b) {
+            $ret = $a['menu_order'] <=> $b['menu_order'];
+            if ($ret === 0) {
+                $ret = $a['menu_label'] <=> $b['menu_label'];
+            }
+            return $ret;
+        });
+        foreach ($menu_links['child_menu_links'] as $menu_link) {
+            $this->sort_menu_links($menu_link);
+        }
+    }
+    
+    function get_menu_links() {
+        $menu_links = null;
+        if ($this->page->is_admin) {
+            $menu_links = $this->get_menu_links_tree($this->page->notes_dir, $this->max_menu_levels);
+        } else {
+            if ($this->menu_links !== null) {
+                // If config has manually given menu_links, return just that.
+                $menu_links = $this->menu_links;
+            } else {
+                // Else, auto generate menu_links bsaed on dirs/files listing
+                $menu_links = $this->get_menu_links_tree($this->page->notes_dir, $this->max_menu_levels);
+            }
+            $this->sort_menu_links($menu_links);
+        }
+        return $menu_links;
+    }
+    
+    function get_link_label($file) {
+        return $file;
+    }
+
+    function get_menu_links_tree($dir, $max_level, $menu_order = 1) {
+        $menu_links = array(
+            "menu_label" => null,
+            "menu_name" => null,
+            "menu_order" => $menu_order,
+            "links" => [],
+            "child_menu_links" => []
+        );
+        $menu_label = ($dir === '') ? $this->root_menu_label : pathinfo($dir, PATHINFO_FILENAME);
+        $menu_links['menu_label'] = $menu_label;
+        $menu_links['menu_name'] = $dir;
+
+        $files = $this->get_files($dir);
+        $i = 1;
+        foreach ($files as $file) {
+            $file_path = ($dir === '') ? $file : "$dir/$file";
+            array_push($menu_links['links'], array(
+                'file' => $file_path,
+                'order' => $i++,
+                'label' => $this->get_link_label($file)
+            ));
+        }
+
+        if ($max_level > 0) {
+            $sub_dirs = $this->get_dirs($dir);
+            foreach ($sub_dirs as $sub_dir) {
+                $dir_path = ($dir === '') ? $sub_dir : "$dir/$sub_dir";
+                $sub_tree = $this->get_menu_links_tree($dir_path, $max_level - 1, $menu_order + 1);
+                array_push($menu_links['child_menu_links'], $sub_tree);
+            }
+        }
+        return $menu_links;
+    }
+
+    function echo_menu_links($menu_links) {
+        echo "<p class='menu-label'>{$menu_links['menu_label']}</p>";
         echo "<ul class='menu-list'>";
 
+        $active_file = $this->page->file;
         $controller = $this->page->controller;
-        $files = $this->get_files($notes_dir);
         $i = 0; // Use to track last item in loop
-        $files_len = count($files);
-        foreach ($files as $item) {
-            $path_name = $notes_dir ? "$notes_dir/$item" : $item;
+        $files_len = count($menu_links['links']);
+        foreach ($menu_links['links'] as $link) {
+            $file = $link['file'];
+            $label = $link['label'];
+            $path_name = $this->page->notes_dir ? "$this->page->notes_dir/$file" : $file;
             $is_active = ($path_name === $active_file) ? "is-active": "";
-            echo "<li><a class='$is_active' href='{$controller}file=$path_name'>$item</a>";
+            echo "<li><a class='$is_active' href='{$controller}file=$path_name'>$label</a>";
             if ($i++ < ($files_len - 1)) {
                 echo "</li>"; // We close all <li> except last one so Bulma memu list can be nested
             }
         }
 
-        if ($max_levels > 0) {
-            $dirs = $this->get_dirs($notes_dir);
-            foreach ($dirs as $item) {
-                $path_name = $notes_dir ? "$notes_dir/$item" : $item;
-                $this->echo_menu_links($path_name, $active_file, $max_levels - 1);
-            }
+        foreach ($menu_links['child_menu_links'] as $child_menu_links_item) {
+            $this->echo_menu_links($child_menu_links_item);
         }
-
         echo "</li>"; // Last menu item
         echo "</ul>";
     }
@@ -464,7 +541,7 @@ $page = $app->process_request();
                         <?php } ?>
                     </ul>
         
-                    <?php $app->echo_menu_links($page->notes_dir, $page->file, $app->max_menu_levels); ?>
+                    <?php $app->echo_menu_links($app->get_menu_links()); ?>
                 </div>
                 <div class="column is-9">
                     <?php if ($page->action === 'new' || $page->action === 'new_submit') { ?>
@@ -582,7 +659,7 @@ $page = $app->process_request();
         <section class="section">
             <div class="columns">
                 <div class="column is-3 menu">
-                    <?php $app->echo_menu_links($page->notes_dir, $page->file, $app->max_menu_levels); ?>
+                    <?php $app->echo_menu_links($app->get_menu_links()); ?>
                 </div>
                 <div class="column is-9">
                     <div class="content">
