@@ -1,0 +1,6 @@
+{
+  "root_dir": "test/sites/dir",
+  "title": "TestSite",
+  "file_extension_list": [".md", ".txt"],
+  "max_menu_levels": 5
+}

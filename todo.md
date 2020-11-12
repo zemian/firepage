@@ -9,7 +9,7 @@
 * [ ] feature: Theme - look for theme/<theme-name>.php, theme/page-<ext>.php, theme/<file>.php
 * [ ] feature: Search API
 * [ ] feature: Rename file
-* [ ] task: Add test/sites/run.sh
+* [x] task: Add test/sites/run.sh
 * [ ] task: Improve echo_menu_links to pass max_level
 * [ ] task: Add user-guide and dev-guide
 
