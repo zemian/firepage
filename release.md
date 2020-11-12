@@ -1,5 +1,20 @@
 # Release Notes
 
+## 1.3.0 2020-11-12
+
+* [x] Improve index.php with MarkNotesApp class
+* [x] Fix session failed to start
+* [x] Fix exclusion of got files
+* [x] Rename config parameter 'default_note' => 'default_file_name'
+* [x] Rename config parameter 'default_ext_list' => 'file_extension_list'
+* [x] Rename config parameter 'default_notes_dir' => 'default_dir_name'
+* [x] Add config parameter 'root_dir'
+* [x] Add config parameter 'exclude_file_list'
+* [x] Add syntax highlight for `.json` and `.html` in editor
+* [x] Add config parameter 'menu_links' for custom links rendering
+* [x] Add config parameter 'files_to_menu_links' for remapping menu links
+* [x] Add config parameter 'pretty_file_to_label' to auto petty file to menu link label
+
 ## 1.2.0 2020-11-10
 
 * [x] Fix `.marknotes.json` config override
