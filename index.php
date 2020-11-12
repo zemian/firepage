@@ -5,70 +5,77 @@
  * Project Home: https://github.com/zemian/marknotes
  * License: The MIT License (MIT)
  * Author: Zemian Deng
- * Date: 2020-11-04
  */
 
 //
 // ## MarkNotes
 //
 
-// MarkNotes Config Parameters
-// - You may override these with ".marknotes.json" config file.
-$config = array(
-    'title' => 'MarkNotes',
-    'admin_password' => '',
-    'max_menu_levels' => 3,
-    'default_ext_list' => ['.md'],
-    'default_notes_dir' => '',
-    'default_note' => 'readme.md',
-    'root_menu_label' => ''
-);
-
 // Global Vars
-define('MARKNOTES_VERSION', '1.2.0');
+define('MARKNOTES_VERSION', '1.3.0-SNAPSHOT');
 define('MARKNOTES_CONFIG_ENV_KEY', 'MARKNOTES_CONFIG');
 define('MARKNOTES_CONFIG_NAME', '.marknotes.json');
-define('MARKNOTES_ROOT_DIR', __DIR__);
+define('MARKNOTES_DEAFULT_ROOT_DIR', __DIR__);
 
 //
 // ### The MarkNotes Application
 // 
 class MarkNotesApp {
     
-    function __construct($config) {
-        // Config property
-        // - Allow external file override
-        $_env_config = getenv(MARKNOTES_CONFIG_ENV_KEY);
-        $_config_file = $_env_config === false ? (__DIR__ . "/" . MARKNOTES_CONFIG_NAME) : $_env_config;
-        $this->config = array_merge($config, $this->read_config($_config_file));
+    function __construct() {
+        // Read in external config file for override
+        $config_file = getenv(MARKNOTES_CONFIG_ENV_KEY) ?: (MARKNOTES_DEAFULT_ROOT_DIR . "/" . MARKNOTES_CONFIG_NAME);
+        $config = $this->read_config($config_file);
 
+        // Config parameters
+        $this->root_dir = ($config['root_dir'] ?? '') ?: MARKNOTES_DEAFULT_ROOT_DIR;
+        $this->title = $config['title'] ?? 'MarkNotes';
+        $this->admin_password = $config['admin_password'] ?? '';
+        $this->root_menu_label = $config['root_menu_label'] ?? 'Notes';
+        $this->max_menu_levels = $config['max_menu_levels'] ?? 2;
+        $this->default_dir_name = $config['default_dir_name'] ?? '';
+        $this->default_file_name = $config['default_file_name'] ?? 'readme.md';
+        $this->file_extension_list = $config['file_extension_list'] ?? ['.md'];
+        $this->exclude_file_list = $config['exclude_file_list'] ?? [];
+        $this->menu_links = $config['menu_links'] ?? null;
+        $this->files_to_menu_links = $config['files_to_menu_links'] ?? [];
+        $this->pretty_file_to_label = $config['pretty_file_to_label'] ?? false;
+        
+        // Init service
+        $this->init_parsedown();
+        
         // Page property
-        $this->page = new class ($this->config) {
-            function __construct($config) {
-                $this->action = $_GET['action'] ?? "file"; // Default action is to GET file
-                $this->file = $_GET['file'] ?? $config['default_note'];
-                $this->notes_dir = $_GET['notes_dir'] ?? $config['default_notes_dir'];
+        $this->page = new class ($this) {
+            function __construct($app) {
+                $this->action = $_GET['action'] ?? 'file'; // Default action is to GET file
+                $this->file = $_GET['file'] ?? $app->default_file_name;
+                $this->notes_dir = $_GET['notes_dir'] ?? $app->default_dir_name;
                 $this->is_admin = isset($_GET['admin']);
                 $this->url_path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
-                $this->controller = $this->url_path . '?' . ($this->is_admin ? 'admin=true&' : '');
-                $this->title = $config['title'];
-                $this->max_menu_levels = $config['max_menu_levels'];
+                $this->file_content = null;
                 $this->form_error = null;
                 $this->delete_status = null;
-                $this->file_content = null;
-                $this->file_content_formatted = null;
+
+                // Calculate controller path
+                $this->controller = $this->url_path . '?' . ($this->is_admin ? 'admin=true&' : '');
+                // If notes dir is not default, ensure we retain it on next request in the controller.
+                if ($this->notes_dir !== $app->default_dir_name) {
+                    $this->controller .= "notes_dir={$this->notes_dir}&";
+                }
             }
         };
-        
-        $this->root_dir = MARKNOTES_ROOT_DIR . ($this->page->notes_dir ? "/{$this->page->notes_dir}"  : '');
-        $this->file_ext_list = $this->config['default_ext_list'];
-        $this->parsedown = new ParsedownExtra();
+    }
+    
+    function init_parsedown() {
+        $this->parsedown = new ParsedownExtra();        
     }
 
     function process_request() {
         // If this is admin request, and if password is enabled start session
         if ($this->page->is_admin && $this->is_password_enabled()) {
-            session_start();
+            if (!session_start()) {
+                die("Unable to create PHP session!");
+            }
             
             // If admin session is not set, then force action to be login first.
             if (!$this->is_logged_in()) {
@@ -78,11 +85,6 @@ class MarkNotesApp {
         
         // Process Request and return $this->page var
         $action = $this->page->action;
-        
-        // If notes dir is not default, ensure we retain it on next request in the controller.
-        if ($this->page->notes_dir !== $this->config['default_notes_dir']) {
-            $this->page->controller .= "notes_dir={$this->page->notes_dir}&";
-        }
 
         // Process POST requests
         if (isset($_POST['action'])) {
@@ -91,7 +93,7 @@ class MarkNotesApp {
             $action = $this->page->action;
             if ($action === 'login_submit') {
                 $password = $_POST['password'];
-                $admin_password = $this->config['admin_password'];
+                $admin_password = $this->admin_password;
                 
                 $this->page->form_error = $this->login($password, $admin_password);
                 if ($this->page->form_error === null) {
@@ -190,15 +192,31 @@ class MarkNotesApp {
         $len = strlen($sub_str);
         return substr_compare($str, $sub_str, 0, $len) === 0;
     }
+    
+    function is_file_excluded($dir_file) {
+        if (count($this->exclude_file_list) > 0) {
+            foreach($this->exclude_file_list as $exclude) {
+                // Exclude in relative to the root_dir
+                if ($this->starts_with("$dir_file", "$this->root_dir/$exclude")) {
+                    return true; // break
+                }
+            }
+        }
+        return false;
+    }
 
     function get_files($sub_path = '') {
         $ret = [];
         $dir = $this->root_dir . ($sub_path ? "/$sub_path" : '');
         $files = array_slice(scandir($dir), 2);
         foreach ($files as $file) {
-            if (is_file("$dir/$file") && $file !== MARKNOTES_CONFIG_NAME) {
-                foreach ($this->file_ext_list as $ext) {
-                    if ($this->ends_with($file, $ext)) {
+            $dir_file = "$dir/$file";
+            if (is_file($dir_file) && $file !== MARKNOTES_CONFIG_NAME) {
+                if ($this->is_file_excluded($dir_file)) {
+                    continue;
+                }
+                foreach ($this->file_extension_list as $ext) {
+                    if (!$this->starts_with($file, '.') && $this->ends_with($file, $ext)) {
                         array_push($ret, $file);
                         break;
                     }
@@ -213,9 +231,10 @@ class MarkNotesApp {
         $dir = $this->root_dir . ($sub_path ? "/$sub_path" : '');
         $files = array_slice(scandir($dir), 2);
         foreach ($files as $file) {
-            if (is_dir("$dir/$file")) {
-                // Do not include hidden dot folders
-                if (!$this->starts_with($file, '.')) {
+            $dir_file = "$dir/$file";
+            if (is_dir($dir_file)) {
+                // Do not include hidden dot folders or from exclusion list
+                if (!$this->starts_with($file, '.') && !$this->is_file_excluded($dir_file)) {
                     array_push($ret, $file);
                 }
             }
@@ -247,7 +266,12 @@ class MarkNotesApp {
     function read_config($config_file) {
         if (file_exists($config_file)) {
             $json = file_get_contents($config_file);
-            return json_decode($json, true);
+            $config = json_decode($json, true);
+            if ($config === null) {
+                die("Invalid config JSON file: $config_file");
+            }
+            
+            return $config;
         }
         return array();
     }
@@ -277,7 +301,7 @@ class MarkNotesApp {
     }
 
     function is_password_enabled() {
-        return $this->config['admin_password'] !== '';
+        return $this->admin_password !== '';
     }
 
     function is_logged_in() {
@@ -289,8 +313,8 @@ class MarkNotesApp {
     }
     
     function validate_note_name($name, $is_exists_check) {
-        $ext_list = $this->config['default_ext_list'];
-        $max_depth = $this->config['max_menu_levels'];
+        $ext_list = $this->file_extension_list;
+        $max_depth = $this->max_menu_levels;
         $error = 'Invalid name: ';
         $n = strlen($name);
         $ext_words = implode('|', $ext_list);
@@ -326,33 +350,144 @@ class MarkNotesApp {
         return $error;
     }
 
-    function echo_menu_links($notes_dir, $active_file, $max_levels) {
-        $base_name = basename($notes_dir);
-        $menu_label = $base_name ?: $this->config['root_menu_label'];
-        echo "<p class='menu-label'>$menu_label</p>";
+    // We need to accept array reference so we can modify array in-place!
+    function sort_menu_links(&$menu_links) {
+        usort($menu_links['links'], function ($a, $b) {
+            $ret = $a['order'] <=> $b['order'];
+            if ($ret === 0) {
+                $ret = $a['label'] <=> $b['label'];
+            }
+            return $ret;
+        });
+        usort($menu_links['child_menu_links'], function ($a, $b) {
+            $ret = $a['menu_order'] <=> $b['menu_order'];
+            if ($ret === 0) {
+                $ret = $a['menu_label'] <=> $b['menu_label'];
+            }
+            return $ret;
+        });
+        foreach ($menu_links['child_menu_links'] as $menu_link) {
+            $this->sort_menu_links($menu_link);
+        }
+    }
+    
+    function remap_menu_links(&$menu_link) {
+        if (count($this->files_to_menu_links) === 0) {
+            return;
+        }
+        $map = $this->files_to_menu_links;
+        foreach ($menu_link['links'] as $idx => &$link) {
+            $file = $link['file'];
+            if (array_key_exists($file, $map)) {
+                $new_link = $map[$file];
+                if (isset($new_link['hide'])) {
+                    unset($menu_link['links'][$idx]);
+                } else {
+                    $link = array_merge($link, $map[$file]);
+                }
+            }
+        }
+
+        foreach ($menu_link['child_menu_links'] as $idx => &$child_menu_links_item) {
+            $menu_dir = $child_menu_links_item['menu_dir'];
+            if (array_key_exists($menu_dir, $map) && isset($map[$menu_dir]['hide'])) {
+                unset($menu_link['child_menu_links'][$idx]);
+            } else {
+                $this->remap_menu_links($child_menu_links_item);
+            }
+        }
+    }
+    
+    function get_menu_links() {
+        $menu_links = null;
+        if ($this->page->is_admin) {
+            $menu_links = $this->get_menu_links_tree($this->page->notes_dir, $this->max_menu_levels);
+        } else {
+            if ($this->menu_links !== null) {
+                // If config has manually given menu_links, return just that.
+                $menu_links = $this->menu_links;
+            } else {
+                // Else, auto generate menu_links bsaed on dirs/files listing
+                $menu_links = $this->get_menu_links_tree($this->page->notes_dir, $this->max_menu_levels);
+                $this->remap_menu_links($menu_links);
+            }
+            $this->sort_menu_links($menu_links);
+        }
+        return $menu_links;
+    }
+    
+    function get_link_label($file) {
+        if (!$this->pretty_file_to_label) {
+            return $file;
+        }
+        $label = pathinfo($file, PATHINFO_FILENAME);
+        $label = preg_replace('/([A-Z])/', " $1", $label);
+        $label = preg_replace('/([\-_])/', " ", $label);
+        $label = preg_replace_callback('/( [a-z])/', function ($matches) {
+            return strtoupper($matches[0]);
+        }, $label);
+        $label = trim($label);
+        $label = ucfirst($label);
+        return $label;
+    }
+
+    function get_menu_links_tree($dir, $max_level, $menu_order = 1) {
+        $menu_links = array(
+            "menu_label" => null,
+            "menu_name" => null,
+            "menu_order" => $menu_order,
+            "menu_dir" => $dir,
+            "links" => [],
+            "child_menu_links" => []
+        );
+        $dir_name = ($dir === '') ? $this->root_menu_label : pathinfo($dir, PATHINFO_FILENAME);
+        $menu_links['menu_label'] = $this->get_link_label($dir_name);
+        $menu_links['menu_name'] = $dir;
+
+        $files = $this->get_files($dir);
+        $i = 1;
+        foreach ($files as $file) {
+            $file_path = ($dir === '') ? $file : "$dir/$file";
+            array_push($menu_links['links'], array(
+                'file' => $file_path,
+                'order' => $i++,
+                'label' => $this->get_link_label($file)
+            ));
+        }
+
+        if ($max_level > 0) {
+            $sub_dirs = $this->get_dirs($dir);
+            foreach ($sub_dirs as $sub_dir) {
+                $dir_path = ($dir === '') ? $sub_dir : "$dir/$sub_dir";
+                $sub_tree = $this->get_menu_links_tree($dir_path, $max_level - 1, $menu_order + 1);
+                array_push($menu_links['child_menu_links'], $sub_tree);
+            }
+        }
+        return $menu_links;
+    }
+
+    function echo_menu_links($menu_links) {
+        echo "<p class='menu-label'>{$menu_links['menu_label']}</p>";
         echo "<ul class='menu-list'>";
 
+        $active_file = $this->page->file;
         $controller = $this->page->controller;
-        $files = $this->get_files($notes_dir);
         $i = 0; // Use to track last item in loop
-        $files_len = count($files);
-        foreach ($files as $item) {
-            $path_name = $notes_dir ? "$notes_dir/$item" : $item;
+        $files_len = count($menu_links['links']);
+        foreach ($menu_links['links'] as $link) {
+            $file = $link['file'];
+            $label = $link['label'];
+            $path_name = $this->page->notes_dir ? "$this->page->notes_dir/$file" : $file;
             $is_active = ($path_name === $active_file) ? "is-active": "";
-            echo "<li><a class='$is_active' href='{$controller}file=$path_name'>$item</a>";
+            echo "<li><a class='$is_active' href='{$controller}file=$path_name'>$label</a>";
             if ($i++ < ($files_len - 1)) {
                 echo "</li>"; // We close all <li> except last one so Bulma memu list can be nested
             }
         }
 
-        if ($max_levels > 0) {
-            $dirs = $this->get_dirs($notes_dir);
-            foreach ($dirs as $item) {
-                $path_name = $notes_dir ? "$notes_dir/$item" : $item;
-                $this->echo_menu_links($path_name, $active_file, $max_levels - 1);
-            }
+        foreach ($menu_links['child_menu_links'] as $child_menu_links_item) {
+            $this->echo_menu_links($child_menu_links_item);
         }
-
         echo "</li>"; // Last menu item
         echo "</ul>";
     }
@@ -365,13 +500,12 @@ class MarkNotesApp {
         }
     }
 }
-?>
 
-<?php
 //
-// ### The index template
+// ### App Entry
+// - Note that you must not generate any output before starting the PHP session!
 //
-$app = new MarkNotesApp($config);
+$app = new MarkNotesApp();
 $page = $app->process_request();
 ?>
 <!doctype html>
@@ -385,17 +519,9 @@ $page = $app->process_request();
 
     <?php if ($page->is_admin && ($page->action === 'new' || $page->action === 'edit')) { ?>
         <link rel="stylesheet" href="https://unpkg.com/codemirror@5.58.2/lib/codemirror.css">
-        <script src="https://unpkg.com/codemirror@5.58.2/lib/codemirror.js"></script>
-        <script src="https://unpkg.com/codemirror@5.58.2/addon/mode/overlay.js"></script>
-        <script src="https://unpkg.com/codemirror@5.58.2/mode/javascript/javascript.js"></script>
-        <script src="https://unpkg.com/codemirror@5.58.2/mode/css/css.js"></script>
-        <script src="https://unpkg.com/codemirror@5.58.2/mode/xml/xml.js"></script>
-        <script src="https://unpkg.com/codemirror@5.58.2/mode/htmlmixed/htmlmixed.js"></script>
-        <script src="https://unpkg.com/codemirror@5.58.2/mode/markdown/markdown.js"></script>
-        <script src="https://unpkg.com/codemirror@5.58.2/mode/gfm/gfm.js"></script>
     <?php } ?>
     
-    <title><?php echo $page->title; ?></title>
+    <title><?php echo $app->title; ?></title>
 </head>
 <body>
 
@@ -403,7 +529,7 @@ $page = $app->process_request();
     <div class="navbar">
         <div class="navbar-brand">
             <div class="navbar-item">
-                <a class="title" href='<?php echo $page->controller; ?>'><?php echo $page->title; ?></a>
+                <a class="title" href='<?php echo $page->controller; ?>'><?php echo $app->title; ?></a>
             </div>
         </div>
         <div class="navbar-end">
@@ -457,7 +583,7 @@ $page = $app->process_request();
                         <?php } ?>
                     </ul>
         
-                    <?php $app->echo_menu_links($page->notes_dir, $page->file, $page->max_menu_levels); ?>
+                    <?php $app->echo_menu_links($app->get_menu_links()); ?>
                 </div>
                 <div class="column is-9">
                     <?php if ($page->action === 'new' || $page->action === 'new_submit') { ?>
@@ -468,7 +594,7 @@ $page = $app->process_request();
                             <input type="hidden" name="action" value="new_submit">
                             <div class="field">
                                 <div class="label">File Name</div>
-                                <div class="control"><input class="input" type="text" name="file" value="<?php echo $page->file ?>"></div>
+                                <div class="control"><input id='file_name' class="input" type="text" name="file" value="<?php echo $page->file ?>"></div>
                             </div>
                             <div class="field">
                                 <div class="label">Markdown</div>
@@ -486,7 +612,7 @@ $page = $app->process_request();
                             <input type="hidden" name="action" value="edit_submit">
                             <div class="field">
                                 <div class="label">File Name</div>
-                                <div class="control"><input class="input" type="text" name="file" value="<?= $page->file ?>"></div>
+                                <div class="control"><input id='file_name' class="input" type="text" name="file" value="<?= $page->file ?>"></div>
                             </div>
                             <div class="field">
                                 <div class="label">Markdown</div>
@@ -532,21 +658,50 @@ $page = $app->process_request();
             </div>
         </section>
         <?php if ($page->action === 'new' || $page->action === 'edit') { ?>
+            <script src="https://unpkg.com/codemirror@5.58.2/lib/codemirror.js"></script>
+            <script src="https://unpkg.com/codemirror@5.58.2/addon/mode/overlay.js"></script>
+            <script src="https://unpkg.com/codemirror@5.58.2/mode/javascript/javascript.js"></script>
+            <script src="https://unpkg.com/codemirror@5.58.2/mode/css/css.js"></script>
+            <script src="https://unpkg.com/codemirror@5.58.2/mode/xml/xml.js"></script>
+            <script src="https://unpkg.com/codemirror@5.58.2/mode/htmlmixed/htmlmixed.js"></script>
+            <script src="https://unpkg.com/codemirror@5.58.2/mode/markdown/markdown.js"></script>
+            <script src="https://unpkg.com/codemirror@5.58.2/mode/gfm/gfm.js"></script>
             <script>
+                function getCodeMirrorMode(fileName) {
+                    var mode = fileName.split('.').pop();
+                    if (mode === 'md') {
+                        // ext = 'markdown';
+                        mode = 'gfm'; // Use GitHub Flavor Markdown
+                    } else if (mode === 'json') {
+                        mode = {name: 'javascript', json: true};
+                    } else if (mode === 'html') {
+                        mode = 'htmlmixed';
+                    }
+                    return mode;
+                }
+                
                 // Load CodeMirror with Markdown (GitHub Flavor Markdown) syntax highlight
+                var fileNameEl = document.getElementById('file_name');
                 var editor = CodeMirror.fromTextArea(document.getElementById('file_content'), {
                     lineNumbers: true,
-                    mode: 'gfm',
+                    mode: getCodeMirrorMode(fileNameEl.value),
                     theme: 'default',
                 });
                 editor.setSize(null, '500');
+                
+                // Listen to FileName focus change then trigger editor mode change
+                fileNameEl.addEventListener('focusout', (event) => {
+                    var name = event.target.value;
+                    var mode = getCodeMirrorMode(name);
+                    editor.setOption('mode', mode);
+                });
             </script>
         <?php } /* End of new/edit form for <script> tag */?>
     <?php } else { /* Not admin page */?>
         <section class="section">
             <div class="columns">
-                <div class="column is-3 menu">        
-                    <?php $app->echo_menu_links($page->notes_dir, $page->file, $page->max_menu_levels); ?>
+                <div class="column is-3 menu">
+                    <?php $app->echo_menu_links($app->get_menu_links()); ?>
                 </div>
                 <div class="column is-9">
                     <div class="content">

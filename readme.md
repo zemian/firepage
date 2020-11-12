@@ -47,30 +47,66 @@ The application supports the following config parameters that you may override u
 located where the `index.php` is. Or you may also specified config file using a server ENV variable
 named `MARKNOTES_CONFIG`.
 
-The Json file should contain a Json object. Below are the defualt values and you only need to specify the one
-you want to override.
+The Json file should contain a Json object. Below are the default values if you omit them.
 
 ```
 {
+    "root_dir": "",
     "title": "Mark Notes",
     "admin_password": "",
-    "max_menu_levels": 3,
-    "default_ext_list": [".md"],
-    "default_notes_dir": "",
-    "default_note": "readme.md",
-    "root_menu_label": ""
+    "root_menu_label": "Notes",
+    "max_menu_levels": 2,
+    "default_dir_name": "",
+    "default_file_name": "readme.md",
+    "file_extension_list": [".md"],
+    "exclude_file_list": [],
+    "pretty_file_to_label": false
 }
 ```
 
 ### Config Descriptions
 
+* "root_dir": Directory where to read Markdown files. Empty means relative to where `index.php` is.
 * "title": Use to display the HTML title and Admin logo text.
 * "admin_password": Set to non empty to required password to enter into admin area.
-* "max_menu_levels": Max number of depth level to list for menu links (sub-folders).
-* "default_ext_list": Content file extensions allowed to be manage.
-* "default_notes_dir": Specify the root dir for note files. Blank means current dir.
-* "default_note": Default page to load in a notes dir.
 * "root_menu_label": Set a value to be displayed as root menu label.
+* "max_menu_levels": Max number of depth level to list for menu links (sub-folders).
+* "default_dir_name": Specify the root dir for note files. Empty means relative to where `index.php` is.
+* "default_file_name": Default page to load in a notes dir.
+* "file_extension_list": Content file extensions allowed to be manage.
+* "exclude_file_list": List of file or directory to exclude relative from `root_dir`. If set, these won't even display
+  in the admin interface.
+* "pretty_file_to_label": If set to true, it convert file/dir name to a pretty link label.
+
+Below config parameters will have default values of `NULL` if omitted.
+
+* "menu_links": Manually set a menu links. Omit this entry and the menu links will be auto generated based on dirs/files listing.
+    ```  
+      "menu_links": {
+        "menu_label": "Notes",
+        "menu_name": "",
+        "menu_order": 1,
+        "links": [
+          { "order": 1, "label" : "Home", "file": "readme.md" },
+          { "order": 2, "label" : "Markdown Sample", "file": "sample.md" },
+          { "order": 3, "label" : "Release Notes", "file": "release.md" },
+          { "order": 4, "label" : "License", "file": "license.md" }
+        ],
+        "child_menu_links": []
+      }
+    ```
+* "files_to_menu_links": Remap file or dir name in generated menu_links with better label or hide it completely.
+  If `hide` attribute is set, then it only hide from menu link, but it will still shows in Admin interface.
+    ```
+      "files_to_menu_links": {
+        "readme.md" : { "order": 0, "label" : "Home" },
+        "sample.md" : { "order": 1, "label" : "Markdown Sample" },
+        "release.md" : { "order":2, "label" : "Release Notes" },
+        "license.md" : { "order": 3, "label" : "License" },
+        "todo.md" : { "hide": true },
+        "temp" : { "hide": true }
+      }
+    ```
 
 ## Admin Password
 
