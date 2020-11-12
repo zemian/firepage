@@ -4,6 +4,7 @@
 * [ ] bug: Readme link to release and license does not work in GitHub
 * [ ] feature: Search API
 * [ ] feature: Theme
+* [ ] feature: Rename file
 * [ ] task: Add test/sites/run.sh
 * [ ] task: Improve echo_menu_links to pass max_level
 * [ ] task: Add user-guide and dev-guide
