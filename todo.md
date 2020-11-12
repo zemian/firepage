@@ -6,3 +6,12 @@
 * [ ] feature: Theme
 * [ ] task: Add test/sites/run.sh
 * [ ] task: Improve echo_menu_links to pass max_level
+
+## Ideas
+
+* Offline Bulma Theme - name "marknotes" ?
+* Admin with table list and toolbar Theme
+* Blog Theme
+* Docs Theme
+* Markdown Outline Display
+* REST API for content
