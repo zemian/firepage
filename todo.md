@@ -10,3 +10,4 @@
 * [x] Add syntax highlight for `.json` and `.html` in editor
 * [x] Add config parameter 'menu_links' for custom links rendering
 * [x] Add config parameter 'files_to_menu_links' for remapping menu links
+* [x] Add config parameter 'pretty_file_to_label' to auto petty file to menu link label

@@ -39,6 +39,7 @@ class MarkNotesApp {
         $this->exclude_file_list = $config['exclude_file_list'] ?? [];
         $this->menu_links = $config['menu_links'] ?? null;
         $this->files_to_menu_links = $config['files_to_menu_links'] ?? [];
+        $this->pretty_file_to_label = $config['pretty_file_to_label'] ?? false;
         
         // Init service
         $this->init_parsedown();
@@ -416,7 +417,18 @@ class MarkNotesApp {
     }
     
     function get_link_label($file) {
-        return $file;
+        if (!$this->pretty_file_to_label) {
+            return $file;
+        }
+        $label = pathinfo($file, PATHINFO_FILENAME);
+        $label = preg_replace('/([A-Z])/', " $1", $label);
+        $label = preg_replace('/([\-_])/', " ", $label);
+        $label = preg_replace_callback('/( [a-z])/', function ($matches) {
+            return strtoupper($matches[0]);
+        }, $label);
+        $label = trim($label);
+        $label = ucfirst($label);
+        return $label;
     }
 
     function get_menu_links_tree($dir, $max_level, $menu_order = 1) {
@@ -428,8 +440,8 @@ class MarkNotesApp {
             "links" => [],
             "child_menu_links" => []
         );
-        $menu_label = ($dir === '') ? $this->root_menu_label : pathinfo($dir, PATHINFO_FILENAME);
-        $menu_links['menu_label'] = $menu_label;
+        $dir_name = ($dir === '') ? $this->root_menu_label : pathinfo($dir, PATHINFO_FILENAME);
+        $menu_links['menu_label'] = $this->get_link_label($dir_name);
         $menu_links['menu_name'] = $dir;
 
         $files = $this->get_files($dir);

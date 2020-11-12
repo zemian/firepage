@@ -47,8 +47,7 @@ The application supports the following config parameters that you may override u
 located where the `index.php` is. Or you may also specified config file using a server ENV variable
 named `MARKNOTES_CONFIG`.
 
-The Json file should contain a Json object. Below are the default values and you only need to specify the one
-you want to override.
+The Json file should contain a Json object. Below are the default values if you omit them.
 
 ```
 {
@@ -60,7 +59,8 @@ you want to override.
     "default_dir_name": "",
     "default_file_name": "readme.md",
     "file_extension_list": [".md"],
-    "exclude_file_list": []
+    "exclude_file_list": [],
+    "pretty_file_to_label": false
 }
 ```
 
@@ -76,6 +76,10 @@ you want to override.
 * "file_extension_list": Content file extensions allowed to be manage.
 * "exclude_file_list": List of file or directory to exclude relative from `root_dir`. If set, these won't even display
   in the admin interface.
+* "pretty_file_to_label": If set to true, it convert file/dir name to a pretty link label.
+
+Below config parameters will have default values of `NULL` if omitted.
+
 * "menu_links": Manually set a menu links. Omit this entry and the menu links will be auto generated based on dirs/files listing.
     ```  
       "menu_links": {
@@ -91,7 +95,7 @@ you want to override.
         "child_menu_links": []
       }
     ```
-* "files_to_menu_links": Optionally remap file or dir name in generated menu_links with better label or hide it completely.
+* "files_to_menu_links": Remap file or dir name in generated menu_links with better label or hide it completely.
   If `hide` attribute is set, then it only hide from menu link, but it will still shows in Admin interface.
     ```
       "files_to_menu_links": {
