@@ -46,7 +46,7 @@ can click on any file links listed to on menu to view them. Change the browser U
 
 The application supports the following config parameters that you may override using a `.firepage.json` file 
 located where the `index.php` is. Or you may also specified config file using a server ENV variable
-named `MARKNOTES_CONFIG`.
+named `FIREPAGE_CONFIG`.
 
 The Json file should contain a Json object. Below are the default values if you omit them.
 

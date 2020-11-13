@@ -27,11 +27,11 @@ fi
 
 SITE_NAME=$1
 SITE_PATH=$SCRIPT_DIR/sites/$SITE_NAME
-export MARKNOTES_CONFIG=$SITE_PATH/.firepage.json
-if [[ ! -e $MARKNOTES_CONFIG ]]; then
-  echo "ERROR: The config file $MARKNOTES_CONFIG does not exists."
+export FIREPAGE_CONFIG=$SITE_PATH/.firepage.json
+if [[ ! -e $FIREPAGE_CONFIG ]]; then
+  echo "ERROR: The config file $FIREPAGE_CONFIG does not exists."
   exit 0
 fi
 
-echo "Loading config $MARKNOTES_CONFIG"
+echo "Loading config $FIREPAGE_CONFIG"
 php -S localhost:3000

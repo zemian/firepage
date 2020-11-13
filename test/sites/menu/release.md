@@ -18,7 +18,7 @@
 ## 1.2.0 2020-11-10
 
 * [x] Fix `.firepage.json` config override
-* [x] Add `MARKNOTES_CONFIG` env config file loading
+* [x] Add `FIREPAGE_CONFIG` env config file loading
 * [x] Make `default_ext_list` config into list (support multiple extensions)
 * [x] Add footer to site
 * [x] Validate hidden (dot) files/folders creation and edit
