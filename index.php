@@ -1,24 +1,24 @@
 <?php
 /**
- * MarkNotes is a single `index.php` page application for managing Markdown notes.
+ * FirePage is a single `index.php` page application for managing Markdown notes.
  *
- * Project Home: https://github.com/zemian/marknotes
+ * Project Home: https://github.com/zemian/firepage
  * License: The MIT License (MIT)
  * Author: Zemian Deng
  */
 
 //
-// ## MarkNotes
+// ## FirePage
 //
 
 // Global Vars
-define('MARKNOTES_VERSION', '1.3.0');
+define('MARKNOTES_VERSION', '1.4.0-SNAPSHOT');
 define('MARKNOTES_CONFIG_ENV_KEY', 'MARKNOTES_CONFIG');
-define('MARKNOTES_CONFIG_NAME', '.marknotes.json');
+define('MARKNOTES_CONFIG_NAME', '.firepage.json');
 define('MARKNOTES_DEAFULT_ROOT_DIR', __DIR__);
 
 //
-// ### The MarkNotes Application
+// ### The FirePage Application
 // 
 class MarkNotesApp {
     
@@ -29,7 +29,7 @@ class MarkNotesApp {
 
         // Config parameters
         $this->root_dir = ($config['root_dir'] ?? '') ?: MARKNOTES_DEAFULT_ROOT_DIR;
-        $this->title = $config['title'] ?? 'MarkNotes';
+        $this->title = $config['title'] ?? 'FirePage';
         $this->admin_password = $config['admin_password'] ?? '';
         $this->root_menu_label = $config['root_menu_label'] ?? 'Notes';
         $this->max_menu_levels = $config['max_menu_levels'] ?? 2;
@@ -714,7 +714,7 @@ $page = $app->process_request();
 <?php } /* End of Not login form. */ ?>
 
 <div class="footer">
-    <p>Powered by <a href="https://github.com/zemian/marknotes">MarkNotes <?php echo MARKNOTES_VERSION; ?></a></p>
+    <p>Powered by <a href="https://github.com/zemian/firepage">FirePage <?php echo MARKNOTES_VERSION; ?></a></p>
 </div>
 
 </body>
