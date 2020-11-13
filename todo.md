@@ -15,7 +15,7 @@
 
 ## Ideas
 
-* Offline Bulma Theme - name "marknotes" ?
+* Offline Bulma Theme - name "firepage" ?
 * Admin with table list and toolbar Theme
 * Blog Theme
 * Docs Theme

@@ -1,8 +1,8 @@
-# Welcome to MarkNotes
+# Welcome to FirePage
 
-MarkNotes is a single `index.php` page application for managing Markdown files.
+FirePage is a single `index.php` page application for managing Markdown files.
 
-* Project Home: https://github.com/zemian/marknotes
+* Project Home: https://github.com/zemian/firepage
 * Project Owner: Zemian Deng
 * License: [The MIT License (MIT)](index.php?file=license.md)
 * Release: [Notes](index.php?file=release.md)
@@ -10,9 +10,9 @@ MarkNotes is a single `index.php` page application for managing Markdown files.
 If this is a live site, go to [Admin](index.php?admin) to manage the files!
 (NOTE: This link will not work in GitHub project hosting for obviously reason: they don't support PHP!)
 
-A live demo is available [here](https://zemiancodeplayground.000webhostapp.com/marknotes/index.php).
+A live demo is available [here](https://zemiancodeplayground.000webhostapp.com/firepage/index.php).
 
-And some screenshots are available [here](https://zemian.github.io/2020/11/07/marknotes/).
+And some screenshots are available [here](https://zemian.github.io/2020/11/07/firepage/).
 
 ## Features
 
@@ -25,7 +25,7 @@ And some screenshots are available [here](https://zemian.github.io/2020/11/07/ma
 * Secure - Support Admin password.
 * Secure - Serve files from single directory only.
 * Secure - Auto ignore all dot hidden folders and files.
-* Configurable - Using optional `.marknotes.json` config file.
+* Configurable - Using optional `.firepage.json` config file.
 
 ## Getting Started
 
@@ -33,8 +33,8 @@ Copy the `index.php` file to a live web server's public folder. And that's it!
 
 Or to try it locally in your system. Install PHP and then run the following:
 
-    git clone https://github.com/zemian/marknotes
-    cd marknotes
+    git clone https://github.com/zemian/firepage
+    cd firepage
     
     php -S localhost:3000
     open http://localhost:3000
@@ -44,7 +44,7 @@ can click on any file links listed to on menu to view them. Change the browser U
 
 ## Config Parameters
 
-The application supports the following config parameters that you may override using a `.marknotes.json` file 
+The application supports the following config parameters that you may override using a `.firepage.json` file 
 located where the `index.php` is. Or you may also specified config file using a server ENV variable
 named `MARKNOTES_CONFIG`.
 
@@ -53,7 +53,7 @@ The Json file should contain a Json object. Below are the default values if you 
 ```
 {
     "root_dir": "",
-    "title": "Mark Notes",
+    "title": "FirePage",
     "admin_password": "",
     "root_menu_label": "Notes",
     "max_menu_levels": 2,
