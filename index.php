@@ -416,12 +416,12 @@ class MarkNotesApp {
         return $menu_links;
     }
     
-    function get_link_label($file) {
+    function pretty_file_to_label($file) {
         if (!$this->pretty_file_to_label) {
             return $file;
         }
         $label = pathinfo($file, PATHINFO_FILENAME);
-        $label = preg_replace('/([A-Z])/', " $1", $label);
+        $label = preg_replace('/((?:^|[A-Z])[a-z]+)/', " $1", $label);
         $label = preg_replace('/([\-_])/', " ", $label);
         $label = preg_replace_callback('/( [a-z])/', function ($matches) {
             return strtoupper($matches[0]);
@@ -441,7 +441,7 @@ class MarkNotesApp {
             "child_menu_links" => []
         );
         $dir_name = ($dir === '') ? $this->root_menu_label : pathinfo($dir, PATHINFO_FILENAME);
-        $menu_links['menu_label'] = $this->get_link_label($dir_name);
+        $menu_links['menu_label'] = $this->pretty_file_to_label($dir_name);
         $menu_links['menu_name'] = $dir;
 
         $files = $this->get_files($dir);
@@ -451,7 +451,7 @@ class MarkNotesApp {
             array_push($menu_links['links'], array(
                 'file' => $file_path,
                 'order' => $i++,
-                'label' => $this->get_link_label($file)
+                'label' => $this->pretty_file_to_label($file)
             ));
         }
 

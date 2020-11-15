@@ -2,7 +2,7 @@
   "root_dir": "test/sites/all",
   "title": "TestSite",
   "admin_password": "test123",
-  "root_menu_label": "Test Site",
+  "root_menu_label": "TESTSite",
   "max_menu_levels": 5,
   "default_dir_name": "",
   "default_file_name": "hello.html",
