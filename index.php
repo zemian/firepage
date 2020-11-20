@@ -23,8 +23,16 @@ define('FIREPAGE_THEME_DIR', __DIR__ . "/themes");
 //
 /** The application controller. The entry method is process_request(). */
 class FirePageController {
+    var array $config;
+    
     function __construct($config) {
-        // Config parameters
+        $this->config = $config;
+    }
+    
+    function init() {
+        $config = $this->config;
+        
+        // Init config parameters into class properties
         $this->root_dir = ($config['root_dir'] ?? '') ?: FIREPAGE_DEAFULT_ROOT_DIR;
         $this->title = $config['title'] ?? 'FirePage';
         $this->admin_password = $config['admin_password'] ?? '';
@@ -40,13 +48,17 @@ class FirePageController {
         // Optional config params that defaut to null values if not set
         $this->menu_links = $config['menu_links'] ?? null;
         $this->theme = $config['theme'] ?? null;
-
+        
         // Init service
         $this->init_parsedown();
     }
 
     function init_parsedown() {
         $this->parsedown = new ParsedownExtra();
+    }
+    
+    function destroy() {
+        // Do nothing for now.
     }
 
     /**
@@ -82,7 +94,7 @@ class FirePageController {
      * Return a View object that can render UI output. It may return NULL if no view is needed (or Theme handle their
      * own output. 
      */
-    function process_request(): FirePageView {
+    function process_request(): ?FirePageView {
         
         // Page property
         $page = new class ($this) extends FirePageContext {
@@ -98,6 +110,9 @@ class FirePageController {
 
                 // Calculate controller path
                 $this->controller_url = $this->url_path . '?' . ($this->is_admin ? 'admin=true&' : '');
+                
+                // Runtime variable
+                $this->no_view = false; // Theme can override this to render their own view.
             }
         };
         
@@ -190,9 +205,12 @@ class FirePageController {
         }
         
         // Let Theme process request that can modify $page object if needed.
-        if ($this->process_theme_request($page) === false) {
-            return $this->create_view($page);
+        $this->process_theme_request($page);
+        if ($page->no_view) {
+            return null;
         }
+        
+        return $this->create_view($page);
     }
     
     function create_view($page) {
@@ -541,35 +559,42 @@ class FirePageView {
         echo "</li>"; // Last menu item
         echo "</ul>";
     }
-
-    function echo_header() {
+    
+    function echo_header_scripts() {
         $app = $this->app;
         $page = $this->page;
         // Start of view template
         ?>
+        <link rel="stylesheet" href="https://unpkg.com/bulma@0.9.1/css/bulma.min.css">
+        <?php if ($page->is_admin && ($page->action === 'new' || $page->action === 'edit')) { ?>
+            <link rel="stylesheet" href="https://unpkg.com/codemirror@5.58.2/lib/codemirror.css">
+            <script src="https://unpkg.com/codemirror@5.58.2/lib/codemirror.js"></script>
+            <script src="https://unpkg.com/codemirror@5.58.2/addon/mode/overlay.js"></script>
+            <script src="https://unpkg.com/codemirror@5.58.2/mode/javascript/javascript.js"></script>
+            <script src="https://unpkg.com/codemirror@5.58.2/mode/css/css.js"></script>
+            <script src="https://unpkg.com/codemirror@5.58.2/mode/xml/xml.js"></script>
+            <script src="https://unpkg.com/codemirror@5.58.2/mode/htmlmixed/htmlmixed.js"></script>
+            <script src="https://unpkg.com/codemirror@5.58.2/mode/markdown/markdown.js"></script>
+            <script src="https://unpkg.com/codemirror@5.58.2/mode/gfm/gfm.js"></script>
+        <?php } ?>
+        <?php // End of view template
+    }
+
+    function echo_header() {
+        $title = $this->app->title;
+        echo <<< EOT
         <!doctype html>
         <html lang="en">
         <head>
             <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
-            <link rel="stylesheet" href="https://unpkg.com/bulma@0.9.1/css/bulma.min.css">
-        
-            <?php if ($page->is_admin && ($page->action === 'new' || $page->action === 'edit')) { ?>
-                <link rel="stylesheet" href="https://unpkg.com/codemirror@5.58.2/lib/codemirror.css">
-                <script src="https://unpkg.com/codemirror@5.58.2/lib/codemirror.js"></script>
-                <script src="https://unpkg.com/codemirror@5.58.2/addon/mode/overlay.js"></script>
-                <script src="https://unpkg.com/codemirror@5.58.2/mode/javascript/javascript.js"></script>
-                <script src="https://unpkg.com/codemirror@5.58.2/mode/css/css.js"></script>
-                <script src="https://unpkg.com/codemirror@5.58.2/mode/xml/xml.js"></script>
-                <script src="https://unpkg.com/codemirror@5.58.2/mode/htmlmixed/htmlmixed.js"></script>
-                <script src="https://unpkg.com/codemirror@5.58.2/mode/markdown/markdown.js"></script>
-                <script src="https://unpkg.com/codemirror@5.58.2/mode/gfm/gfm.js"></script>
-            <?php } ?>
-        
-            <title><?php echo $app->title; ?></title>
+            <meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">     
+EOT;
+        $this->echo_header_scripts();
+        echo <<< EOT
+            <title>$title</title>
         </head>
         <body>
-        <?php // End of view template
+EOT;
     }
     
     function echo_body() {
@@ -764,9 +789,13 @@ class FirePageView {
     
     function echo_footer() {
         $version = FIREPAGE_VERSION;
+        $theme_label = '';
+        if ($this->app->theme !== null) {
+            $theme_label = " with <b>" . $this->app->theme . "</b> theme";
+        }
         echo <<< EOT
 <div class="footer">
-    <p>Powered by <a href="https://github.com/zemian/firepage">FirePage $version</a></p>
+    <p>Powered by <a href="https://github.com/zemian/firepage">FirePage $version</a>$theme_label</p>
 </div>
 
 </body>
@@ -803,11 +832,10 @@ class FirePage {
         return array();
     }
 
-    function init_theme($app_controller, $config) {
+    function init_theme($config) {
         $theme = $config['theme'] ?? null; // theme name
         // Invoke theme/<theme_name>/<theme_name>.php if exists
         if ($theme !== null) {
-            $app = $app_controller; // expose var to theme
             $theme_file = FIREPAGE_THEME_DIR . "/{$theme}/{$theme}.php";
             if (file_exists($theme_file)) {
                 require_once $theme_file;
@@ -819,17 +847,20 @@ class FirePage {
         // Read in external config file for override
         $config_file = getenv(FIREPAGE_CONFIG_ENV_KEY) ?: (FIREPAGE_DEAFULT_ROOT_DIR . "/" . FIREPAGE_CONFIG_NAME);
         $config = $this->read_config($config_file);
+
+        $this->init_theme($config);
         
         // Instantiate app controller and process the request
         $app_controller_class = $config['app_controller_class'] ?? 'FirePageController';
         $app = new $app_controller_class($config);
-        $this->init_theme($app, $config);
+        $app->init();
         $view = $app->process_request();
         if ($view !== null) {
             $view->echo_header();
             $view->echo_body();
             $view->echo_footer();
         }
+        $app->destroy();
     }
 }
 

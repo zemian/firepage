@@ -61,7 +61,8 @@ The Json file should contain a Json object. Below are the default values if you 
     "default_file_name": "readme.md",
     "file_extension_list": [".md"],
     "exclude_file_list": [],
-    "pretty_file_to_label": false
+    "pretty_file_to_label": false,
+    "app_controller_class": "FirePageController"
 }
 ```
 
@@ -111,6 +112,8 @@ Below config parameters will have default values of `NULL` if omitted.
         "temp" : { "hide": true }
       }
     ```
+  
+* "theme": Use a custom theme located under `themes/<theme-name>` folder.
 
 ## Admin Password
 
