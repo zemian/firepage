@@ -16,11 +16,12 @@ define('FIREPAGE_VERSION', '1.5.0-SNAPSHOT');
 define('FIREPAGE_CONFIG_ENV_KEY', 'FIREPAGE_CONFIG');
 define('FIREPAGE_CONFIG_NAME', '.firepage.json');
 define('FIREPAGE_DEAFULT_ROOT_DIR', __DIR__);
+define('FIREPAGE_THEME_DIR', __DIR__ . "/themes");
 
 //
 // ### The FirePage Application
 // 
-class MarkNotesApp {
+class FirePageApp {
     
     function __construct() {
         // Read in external config file for override
@@ -37,11 +38,19 @@ class MarkNotesApp {
         $this->default_file_name = $config['default_file_name'] ?? 'readme.md';
         $this->file_extension_list = $config['file_extension_list'] ?? ['.md'];
         $this->exclude_file_list = $config['exclude_file_list'] ?? [];
-        $this->menu_links = $config['menu_links'] ?? null;
         $this->files_to_menu_links = $config['files_to_menu_links'] ?? [];
         $this->pretty_file_to_label = $config['pretty_file_to_label'] ?? false;
         
+        // Optional config params that defaut to null values if not set
+        $this->menu_links = $config['menu_links'] ?? null;
+        $this->theme = $config['theme'] ?? null;
+        
+        // Lifecycle hooks that themes can hook into.
+        // Supported hook: "head"
+        $this->hooks = array();
+        
         // Init service
+        $this->init_theme();
         $this->init_parsedown();
         
         // Page property
@@ -61,11 +70,70 @@ class MarkNotesApp {
         };
     }
     
+    /** 
+     * Returns false if hook is not found. Else invoke the hook callback and return its result. 
+     * Extra arguments are pass straight through the call back. If you don't pass any arguments, then 
+     * the "this" application instance will be pass instead.
+     * 
+     * Available hooks:
+     *  "head" - returns true if custom head content is printed, else false. Arguments = $app
+     *  "transform_content" - transform content for view. Arguments = $file, $content
+     */
+    function call_hook($name, ...$params) {
+        if (isset($this->hooks[$name])) {
+            if (count($params) === 0) {
+                $params = [$this];
+            }
+            return call_user_func_array($this->hooks[$name], $params);
+        }
+        return false;
+    }
+    
     function init_parsedown() {
-        $this->parsedown = new ParsedownExtra();        
+        $this->parsedown = new ParsedownExtra();
+    }
+    
+    function init_theme() {
+        // Invoke theme/<theme_name>/<theme_name>.php if exists
+        if ($this->theme !== null) {
+            $app = $this; // expose this var to theme script
+            $theme_file = FIREPAGE_THEME_DIR . "/{$this->theme}/{$this->theme}.php";
+            if (file_exists($theme_file)) {
+                require_once $theme_file;
+            }
+        }
     }
 
-    function process_request() {
+    /** 
+     * It looks for script named <page_name>.php, or page-<page_ext>.php in theme to process request. If the script
+     * exist, it should return page object for view to render, else returns null response has already been 
+     * processed. (no view needed).
+     */
+    function process_theme_request() {
+        // These $app and $page variables will be expose to theme.
+        $app = $this;
+        $page = $this->page;
+        $page->parent_url_path = dirname($this->page->url_path);
+        $page->theme_url = $page->parent_url_path . "themes/" . $this->theme;
+        if ($this->theme !== null) {
+            $page_ext = pathinfo($this->page->page, PATHINFO_EXTENSION);
+            $page_name_file = FIREPAGE_THEME_DIR . "/{$this->theme}/{$this->page->page}.php";
+            $page_ext_file = FIREPAGE_THEME_DIR . "/{$this->theme}/page-{$page_ext}.php";
+            
+            if (file_exists($page_name_file)) {
+                // Process by page name
+                $page = require_once $page_name_file;
+            } else if (file_exists($page_ext_file)) {
+                // Process by page extension
+                $page = require_once $page_ext_file;
+            }
+        }
+        
+        return $page;
+    }
+    
+    /** Return page object for view to render, else returns null response has already been processed. (no view needed) */
+    function process_request() {        
         // If this is admin request, and if password is enabled start session
         if ($this->page->is_admin && $this->is_password_enabled()) {
             if (!session_start()) {
@@ -154,18 +222,24 @@ class MarkNotesApp {
             }
         }
         
-        return $this->page;
+        return $this->process_theme_request();
     }
     
     function transform_content($file, $content) {
-        if ($this->ends_with($file, '.md') || $this->ends_with($file, '.markdown')) {
-            return $this->convert_to_markdown($content);
-        } else if ($this->ends_with($file, '.txt')) {
-            return "<pre>" . htmlentities($content) . "</pre>";
-        } else if ($this->ends_with($file, '.json')) {
-            return "<pre>" . $content . "</pre>";
+        // Check "transform_content" hook
+        $ret = $this->call_hook("transform_content", $file, $content);
+        if ($ret === false) {
+            if ($this->ends_with($file, '.md') || $this->ends_with($file, '.markdown')) {
+                $ret = $this->convert_to_markdown($content);
+            } else if ($this->ends_with($file, '.txt')) {
+                $ret = "<pre>" . htmlentities($content) . "</pre>";
+            } else if ($this->ends_with($file, '.json')) {
+                $ret = "<pre>" . $content . "</pre>";
+            } else {
+                $ret = $content; // Default is original content.
+            }
         }
-        return $content;
+        return $ret;
     }
     
     function get_file_content($file) {
@@ -178,12 +252,12 @@ class MarkNotesApp {
         }
     }
     
-    function ends_with($str, $sub_str) {
+    static function ends_with($str, $sub_str) {
         $len = strlen($sub_str);
         return substr_compare($str, $sub_str, -$len) === 0;
     }
 
-    function starts_with($str, $sub_str) {
+    static function starts_with($str, $sub_str) {
         $len = strlen($sub_str);
         return substr_compare($str, $sub_str, 0, $len) === 0;
     }
@@ -500,23 +574,35 @@ class MarkNotesApp {
 // ### App Entry
 // - Note that you must not generate any output before starting the PHP session!
 //
-$app = new MarkNotesApp();
+$app = new FirePageApp();
 $page = $app->process_request();
+if ($page === null) {
+    // Page already processed by theme
+    exit;
+}
 ?>
 <!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport"
-          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
-    <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <link rel="stylesheet" href="https://unpkg.com/bulma">
+<head>    
+    <?php if (!$app->call_hook('head')) { ?>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+        <link rel="stylesheet" href="https://unpkg.com/bulma@0.9.1/css/bulma.min.css">
 
-    <?php if ($page->is_admin && ($page->action === 'new' || $page->action === 'edit')) { ?>
-        <link rel="stylesheet" href="https://unpkg.com/codemirror@5.58.2/lib/codemirror.css">
+        <?php if ($page->is_admin && ($page->action === 'new' || $page->action === 'edit')) { ?>
+            <link rel="stylesheet" href="https://unpkg.com/codemirror@5.58.2/lib/codemirror.css">
+            <script src="https://unpkg.com/codemirror@5.58.2/lib/codemirror.js"></script>
+            <script src="https://unpkg.com/codemirror@5.58.2/addon/mode/overlay.js"></script>
+            <script src="https://unpkg.com/codemirror@5.58.2/mode/javascript/javascript.js"></script>
+            <script src="https://unpkg.com/codemirror@5.58.2/mode/css/css.js"></script>
+            <script src="https://unpkg.com/codemirror@5.58.2/mode/xml/xml.js"></script>
+            <script src="https://unpkg.com/codemirror@5.58.2/mode/htmlmixed/htmlmixed.js"></script>
+            <script src="https://unpkg.com/codemirror@5.58.2/mode/markdown/markdown.js"></script>
+            <script src="https://unpkg.com/codemirror@5.58.2/mode/gfm/gfm.js"></script>
+        <?php } ?>
+
+        <title><?php echo $app->title; ?></title>
     <?php } ?>
-    
-    <title><?php echo $app->title; ?></title>
 </head>
 <body>
 
@@ -653,14 +739,6 @@ $page = $app->process_request();
             </div>
         </section>
         <?php if ($page->action === 'new' || $page->action === 'edit') { ?>
-            <script src="https://unpkg.com/codemirror@5.58.2/lib/codemirror.js"></script>
-            <script src="https://unpkg.com/codemirror@5.58.2/addon/mode/overlay.js"></script>
-            <script src="https://unpkg.com/codemirror@5.58.2/mode/javascript/javascript.js"></script>
-            <script src="https://unpkg.com/codemirror@5.58.2/mode/css/css.js"></script>
-            <script src="https://unpkg.com/codemirror@5.58.2/mode/xml/xml.js"></script>
-            <script src="https://unpkg.com/codemirror@5.58.2/mode/htmlmixed/htmlmixed.js"></script>
-            <script src="https://unpkg.com/codemirror@5.58.2/mode/markdown/markdown.js"></script>
-            <script src="https://unpkg.com/codemirror@5.58.2/mode/gfm/gfm.js"></script>
             <script>
                 function getCodeMirrorMode(fileName) {
                     var mode = fileName.split('.').pop();

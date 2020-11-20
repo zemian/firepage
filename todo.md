@@ -6,7 +6,7 @@
 * [ ] bug: Edit empty file name not validating
 * [ ] bug: Create file name with special chars not validating
 * [ ] bug: root_menu_label with unicode chars not working
-* [ ] feature: Theme - look for theme/<theme-name>.php, theme/page-<ext>.php, theme/<page>.php
+* [x] feature: Theme - makes app extendable
 * [ ] feature: Search API
 * [ ] feature: Rename file
 * [x] feature: Rename url param from 'file' to 'page'
