@@ -11,6 +11,7 @@
 * [ ] feature: Rename file
 * [x] feature: Rename url param from 'file' to 'page'
 * [x] task: Add test/sites/run.sh
+* [x] task: Remove unused 'notes_dir' url param
 * [ ] task: Improve echo_menu_links to pass max_level
 * [ ] task: Add user-guide and dev-guide
 

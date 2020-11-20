@@ -49,7 +49,6 @@ class MarkNotesApp {
             function __construct($app) {
                 $this->action = $_GET['action'] ?? 'page'; // Default action is to GET page
                 $this->page = $_GET['page'] ?? $app->default_file_name;
-                $this->notes_dir = $_GET['notes_dir'] ?? $app->default_dir_name;
                 $this->is_admin = isset($_GET['admin']);
                 $this->url_path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
                 $this->file_content = null;
@@ -58,10 +57,6 @@ class MarkNotesApp {
 
                 // Calculate controller path
                 $this->controller = $this->url_path . '?' . ($this->is_admin ? 'admin=true&' : '');
-                // If notes dir is not default, ensure we retain it on next request in the controller.
-                if ($this->notes_dir !== $app->default_dir_name) {
-                    $this->controller .= "notes_dir={$this->notes_dir}&";
-                }
             }
         };
     }
@@ -401,14 +396,14 @@ class MarkNotesApp {
     function get_menu_links() {
         $menu_links = null;
         if ($this->page->is_admin) {
-            $menu_links = $this->get_menu_links_tree($this->page->notes_dir, $this->max_menu_levels);
+            $menu_links = $this->get_menu_links_tree($this->default_dir_name, $this->max_menu_levels);
         } else {
             if ($this->menu_links !== null) {
                 // If config has manually given menu_links, return just that.
                 $menu_links = $this->menu_links;
             } else {
                 // Else, auto generate menu_links bsaed on dirs/files listing
-                $menu_links = $this->get_menu_links_tree($this->page->notes_dir, $this->max_menu_levels);
+                $menu_links = $this->get_menu_links_tree($this->default_dir_name, $this->max_menu_levels);
                 $this->remap_menu_links($menu_links);
             }
             $this->sort_menu_links($menu_links);
@@ -477,7 +472,7 @@ class MarkNotesApp {
         foreach ($menu_links['links'] as $link) {
             $file = $link['page'];
             $label = $link['label'];
-            $path_name = $this->page->notes_dir ? "$this->page->notes_dir/$file" : $file;
+            $path_name = $this->default_dir_name ? "{$this->default_dir_name}/$file" : $file;
             $is_active = ($path_name === $active_file) ? "is-active": "";
             echo "<li><a class='$is_active' href='{$controller}page=$path_name'>$label</a>";
             if ($i++ < ($files_len - 1)) {
