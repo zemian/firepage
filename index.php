@@ -24,6 +24,19 @@ define('FIREPAGE_THEME_DIR', __DIR__ . "/themes");
 /** The application controller. The entry method is process_request(). */
 class FirePageController {
     var array $config;
+    var string $root_dir;
+    var string $title;
+    var string $admin_password;
+    var string $root_menu_label;
+    var string $max_menu_levels;
+    var string $default_dir_name;
+    var string $default_file_name;
+    var array $file_extension_list;
+    var array $exclude_file_list;
+    var array $files_to_menu_links;
+    var bool $pretty_file_to_label;
+    var ?array $menu_links;
+    var ?string $theme;
     
     function __construct($config) {
         $this->config = $config;
@@ -96,7 +109,7 @@ class FirePageController {
      */
     function process_request(): ?FirePageView {
         
-        // Page property
+        // Page properties
         $page = new class ($this) extends FirePageContext {
             function __construct($app) {
                 parent::__construct($app);
@@ -104,15 +117,7 @@ class FirePageController {
                 $this->page_name = $_GET['page'] ?? $app->default_file_name;
                 $this->is_admin = isset($_GET['admin']);
                 $this->url_path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
-                $this->file_content = null;
-                $this->form_error = null;
-                $this->delete_status = null;
-
-                // Calculate controller path
                 $this->controller_url = $this->url_path . '?' . ($this->is_admin ? 'admin=true&' : '');
-                
-                // Runtime variable
-                $this->no_view = false; // Theme can override this to render their own view.
             }
         };
         
@@ -490,7 +495,16 @@ class FirePageController {
 
 /** A Page context/map to store any data for View to use. */
 class FirePageContext {
-    public FirePageController $app;
+    var FirePageController $app;
+    var string $action;
+    var string $page_name;
+    var bool $is_admin;
+    var string $url_path;
+    var string $file_content;
+    var string $form_error;
+    var string $delete_status;
+    var string $controller_url;
+    var bool $no_view = false;
     
     function __construct(FirePageController $app) {
         $this->app = $app;
