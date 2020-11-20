@@ -47,8 +47,8 @@ class MarkNotesApp {
         // Page property
         $this->page = new class ($this) {
             function __construct($app) {
-                $this->action = $_GET['action'] ?? 'file'; // Default action is to GET file
-                $this->file = $_GET['file'] ?? $app->default_file_name;
+                $this->action = $_GET['action'] ?? 'page'; // Default action is to GET page
+                $this->page = $_GET['page'] ?? $app->default_file_name;
                 $this->notes_dir = $_GET['notes_dir'] ?? $app->default_dir_name;
                 $this->is_admin = isset($_GET['admin']);
                 $this->url_path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
@@ -100,10 +100,10 @@ class MarkNotesApp {
                     $this->redirect($this->page->controller);
                 }
             } else if ($action === 'new_submit' || $action === 'edit_submit') {
-                $this->page->file = $_POST['file'];
+                $this->page->page = $_POST['page'];
                 $this->page->file_content = $_POST['file_content'];
                 
-                $file = $this->page->file;
+                $file = $this->page->page;
                 $file_content = $this->page->file_content;
                 if ($this->page->form_error === null) {
                     $is_exists_check = $action === 'new_submit';
@@ -114,7 +114,7 @@ class MarkNotesApp {
                 }
                 if ($this->page->form_error === null) {
                     $this->write($file, $file_content);
-                    $this->redirect($this->page->controller . "file=$file");
+                    $this->redirect($this->page->controller . "page=$file");
                 }
             } else {
                 die("Unknown action=$action");
@@ -124,11 +124,11 @@ class MarkNotesApp {
             $is_admin = $this->page->is_admin;
             if ($is_admin) {                
                 if ($action === 'new') {
-                    $this->page->file = '';
+                    $this->page->page = '';
                     $this->page->file_content = '';
                 } else if ($action === 'edit') {
                     // Process GET Edit Form
-                    $file = $this->page->file;
+                    $file = $this->page->page;
                     if ($this->exists($file)) {
                         $this->page->file_content = $this->read($file);
                     } else {
@@ -136,7 +136,7 @@ class MarkNotesApp {
                     }
                 } else if ($action === 'delete-confirmed') {
                     // Process GET - DELETE file
-                    $file = $this->page->file;
+                    $file = $this->page->page;
                     $delete_status = &$this->page->delete_status; // Use Ref
                     if ($this->delete($file)) {
                         $delete_status = "File $file deleted";
@@ -146,13 +146,13 @@ class MarkNotesApp {
                 } else if ($action === 'logout') {
                     $this->logout();
                     $this->redirect($this->page->controller);
-                } else if ($action === 'file') {
-                    $this->page->file_content = $this->get_file_content($this->page->file);
+                } else if ($action === 'page') {
+                    $this->page->file_content = $this->get_file_content($this->page->page);
                 }
             } else {
                 // GET - Not Admin Actions
-                if ($action === 'file'){
-                    $this->page->file_content = $this->get_file_content($this->page->file);
+                if ($action === 'page'){
+                    $this->page->file_content = $this->get_file_content($this->page->page);
                 } else {
                     die("Unknown action=$action");
                 }
@@ -377,7 +377,7 @@ class MarkNotesApp {
         }
         $map = $this->files_to_menu_links;
         foreach ($menu_link['links'] as $idx => &$link) {
-            $file = $link['file'];
+            $file = $link['page'];
             if (array_key_exists($file, $map)) {
                 $new_link = $map[$file];
                 if (isset($new_link['hide'])) {
@@ -449,7 +449,7 @@ class MarkNotesApp {
         foreach ($files as $file) {
             $file_path = ($dir === '') ? $file : "$dir/$file";
             array_push($menu_links['links'], array(
-                'file' => $file_path,
+                'page' => $file_path,
                 'order' => $i++,
                 'label' => $this->pretty_file_to_label($file)
             ));
@@ -470,16 +470,16 @@ class MarkNotesApp {
         echo "<p class='menu-label'>{$menu_links['menu_label']}</p>";
         echo "<ul class='menu-list'>";
 
-        $active_file = $this->page->file;
+        $active_file = $this->page->page;
         $controller = $this->page->controller;
         $i = 0; // Use to track last item in loop
         $files_len = count($menu_links['links']);
         foreach ($menu_links['links'] as $link) {
-            $file = $link['file'];
+            $file = $link['page'];
             $label = $link['label'];
             $path_name = $this->page->notes_dir ? "$this->page->notes_dir/$file" : $file;
             $is_active = ($path_name === $active_file) ? "is-active": "";
-            echo "<li><a class='$is_active' href='{$controller}file=$path_name'>$label</a>";
+            echo "<li><a class='$is_active' href='{$controller}page=$path_name'>$label</a>";
             if ($i++ < ($files_len - 1)) {
                 echo "</li>"; // We close all <li> except last one so Bulma memu list can be nested
             }
@@ -533,12 +533,12 @@ $page = $app->process_request();
             </div>
         </div>
         <div class="navbar-end">
-            <?php if ($page->is_admin && $page->action === 'file' && (!$app->is_password_enabled() || $app->is_logged_in())) { ?>
+            <?php if ($page->is_admin && $page->action === 'page' && (!$app->is_password_enabled() || $app->is_logged_in())) { ?>
             <div class="navbar-item">
-                <a href="<?php echo $page->controller; ?>action=edit&file=<?= $page->file ?>">EDIT</a>
+                <a href="<?php echo $page->controller; ?>action=edit&page=<?= $page->page ?>">EDIT</a>
             </div>
             <div class="navbar-item">
-                <a href="<?php echo $page->controller; ?>action=delete&file=<?= $page->file ?>">DELETE</a>
+                <a href="<?php echo $page->controller; ?>action=delete&page=<?= $page->page ?>">DELETE</a>
             </div>
             <?php } ?>
         </div>
@@ -594,7 +594,7 @@ $page = $app->process_request();
                             <input type="hidden" name="action" value="new_submit">
                             <div class="field">
                                 <div class="label">File Name</div>
-                                <div class="control"><input id='file_name' class="input" type="text" name="file" value="<?php echo $page->file ?>"></div>
+                                <div class="control"><input id='file_name' class="input" type="text" name="page" value="<?php echo $page->page ?>"></div>
                             </div>
                             <div class="field">
                                 <div class="label">Markdown</div>
@@ -612,7 +612,7 @@ $page = $app->process_request();
                             <input type="hidden" name="action" value="edit_submit">
                             <div class="field">
                                 <div class="label">File Name</div>
-                                <div class="control"><input id='file_name' class="input" type="text" name="file" value="<?= $page->file ?>"></div>
+                                <div class="control"><input id='file_name' class="input" type="text" name="page" value="<?= $page->page ?>"></div>
                             </div>
                             <div class="field">
                                 <div class="label">Markdown</div>
@@ -621,7 +621,7 @@ $page = $app->process_request();
                             <div class="field">
                                 <div class="control">
                                     <input class="button is-info" type="submit" name="submit" value="Update">
-                                    <a class="button" href="<?php echo $page->controller; ?>file=<?= $page->file ?>">Cancel</a>
+                                    <a class="button" href="<?php echo $page->controller; ?>page=<?= $page->page ?>">Cancel</a>
                                 </div>
                             </div>
                         </form>
@@ -629,10 +629,10 @@ $page = $app->process_request();
                         <div class="message is-danger">
                             <div class="message-header">Delete Confirmation</div>
                             <div class="message-body">
-                                <p class="block">Are you sure you want to delete <b><?= $page->file ?></b>?</p>
+                                <p class="block">Are you sure you want to delete <b><?= $page->page ?></b>?</p>
         
-                                <a class="button is-info" href="<?php echo $page->controller; ?>action=delete-confirmed&file=<?= $page->file ?>">Delete</a>
-                                <a class="button" href="<?php echo $page->controller; ?>file=<?= $page->file ?>">Cancel</a>
+                                <a class="button is-info" href="<?php echo $page->controller; ?>action=delete-confirmed&page=<?= $page->page ?>">Delete</a>
+                                <a class="button" href="<?php echo $page->controller; ?>page=<?= $page->page ?>">Cancel</a>
                             </div>
                         </div>
                     <?php } else if ($page->action === 'delete-confirmed') { ?>
@@ -642,7 +642,7 @@ $page = $app->process_request();
                                 <p class="block"><?php echo $page->delete_status; ?></p>
                             </div>
                         </div>
-                    <?php } else if ($page->action === 'file') { ?>
+                    <?php } else if ($page->action === 'page') { ?>
                         <div class="content">
                             <?php $app->echo_content($page->file_content); ?>
                         </div>

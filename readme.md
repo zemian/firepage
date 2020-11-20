@@ -4,8 +4,8 @@ FirePage is a single `index.php` page application for managing Markdown files.
 
 * Project Home: https://github.com/zemian/firepage
 * Project Owner: Zemian Deng
-* License: [The MIT License (MIT)](index.php?file=license.md)
-* Release: [Notes](index.php?file=release.md)
+* License: [The MIT License (MIT)](index.php?page=license.md)
+* Release: [Notes](index.php?page=release.md)
 
 If this is a live site, go to [Admin](index.php?admin) to manage the files!
 (NOTE: This link will not work in GitHub project hosting for obviously reason: they don't support PHP!)
@@ -90,10 +90,10 @@ Below config parameters will have default values of `NULL` if omitted.
         "menu_name": "",
         "menu_order": 1,
         "links": [
-          { "order": 1, "label" : "Home", "file": "readme.md" },
-          { "order": 2, "label" : "Markdown Sample", "file": "sample.md" },
-          { "order": 3, "label" : "Release Notes", "file": "release.md" },
-          { "order": 4, "label" : "License", "file": "license.md" }
+          { "order": 1, "label" : "Home", "page": "readme.md" },
+          { "order": 2, "label" : "Markdown Sample", "page": "sample.md" },
+          { "order": 3, "label" : "Release Notes", "page": "release.md" },
+          { "order": 4, "label" : "License", "page": "license.md" }
         ],
         "child_menu_links": []
       }
