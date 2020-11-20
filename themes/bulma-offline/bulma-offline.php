@@ -39,7 +39,7 @@ EOT;
 
 // Ensure the file_content is not been transformed for .json type.
 $app->hooks['transform_content'] = function ($file, $content) {
-    if (FirePageApp::ends_with($file, '.json')) {
+    if (FirePageUtils::ends_with($file, '.json')) {
         return $content; // Do not transform.
     }
     return false; // Let the built-in theme do it's stuff.

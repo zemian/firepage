@@ -19,15 +19,11 @@ define('FIREPAGE_DEAFULT_ROOT_DIR', __DIR__);
 define('FIREPAGE_THEME_DIR', __DIR__ . "/themes");
 
 //
-// ### The FirePage Application
-// 
-class FirePageApp {
-    
-    function __construct() {
-        // Read in external config file for override
-        $config_file = getenv(FIREPAGE_CONFIG_ENV_KEY) ?: (FIREPAGE_DEAFULT_ROOT_DIR . "/" . FIREPAGE_CONFIG_NAME);
-        $config = $this->read_config($config_file);
-
+// ### The FirePage Application - Controller, View and PageContext
+//
+/** The application controller. The entry method is process_request(). */
+class FirePageController {
+    function __construct($config) {
         // Config parameters
         $this->root_dir = ($config['root_dir'] ?? '') ?: FIREPAGE_DEAFULT_ROOT_DIR;
         $this->title = $config['title'] ?? 'FirePage';
@@ -40,24 +36,60 @@ class FirePageApp {
         $this->exclude_file_list = $config['exclude_file_list'] ?? [];
         $this->files_to_menu_links = $config['files_to_menu_links'] ?? [];
         $this->pretty_file_to_label = $config['pretty_file_to_label'] ?? false;
-        
+
         // Optional config params that defaut to null values if not set
         $this->menu_links = $config['menu_links'] ?? null;
         $this->theme = $config['theme'] ?? null;
-        
-        // Lifecycle hooks that themes can hook into.
-        // Supported hook: "head"
-        $this->hooks = array();
-        
+
         // Init service
-        $this->init_theme();
         $this->init_parsedown();
+    }
+
+    function init_parsedown() {
+        $this->parsedown = new ParsedownExtra();
+    }
+
+    /**
+     * It looks for script named <page_name>.php, or page-<page_ext>.php in theme to process request. If the script
+     * exist, it should return page object for view to render, else returns null response has already been
+     * processed. (no view needed).
+     * 
+     * NOTE: The $page argument is passed by ref and it's modifiable.
+     */
+    function process_theme_request(&$page) {
+        $ret = false;
+        // This $app variables will be expose to theme.
+        $app = $this;
+        $page->parent_url_path = dirname($page->url_path);
+        $page->theme_url = $page->parent_url_path . "themes/" . $app->theme;
+        if ($app->theme !== null) {
+            $page_ext = pathinfo($page->page_name, PATHINFO_EXTENSION);
+            $page_name_file = FIREPAGE_THEME_DIR . "/{$app->theme}/{$page->page_name}.php";
+            $page_ext_file = FIREPAGE_THEME_DIR . "/{$app->theme}/page-{$page_ext}.php";
+
+            if (file_exists($page_name_file)) {
+                // Process by page name
+                $ret = require_once $page_name_file;
+            } else if (file_exists($page_ext_file)) {
+                // Process by page extension
+                $ret = require_once $page_ext_file;
+            }
+        }
+        return $ret;
+    }
+
+    /** 
+     * Return a View object that can render UI output. It may return NULL if no view is needed (or Theme handle their
+     * own output. 
+     */
+    function process_request(): FirePageView {
         
         // Page property
-        $this->page = new class ($this) {
+        $page = new class ($this) extends FirePageContext {
             function __construct($app) {
+                parent::__construct($app);
                 $this->action = $_GET['action'] ?? 'page'; // Default action is to GET page
-                $this->page = $_GET['page'] ?? $app->default_file_name;
+                $this->page_name = $_GET['page'] ?? $app->default_file_name;
                 $this->is_admin = isset($_GET['admin']);
                 $this->url_path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
                 $this->file_content = null;
@@ -65,142 +97,77 @@ class FirePageApp {
                 $this->delete_status = null;
 
                 // Calculate controller path
-                $this->controller = $this->url_path . '?' . ($this->is_admin ? 'admin=true&' : '');
+                $this->controller_url = $this->url_path . '?' . ($this->is_admin ? 'admin=true&' : '');
             }
         };
-    }
-    
-    /** 
-     * Returns false if hook is not found. Else invoke the hook callback and return its result. 
-     * Extra arguments are pass straight through the call back. If you don't pass any arguments, then 
-     * the "this" application instance will be pass instead.
-     * 
-     * Available hooks:
-     *  "head" - returns true if custom head content is printed, else false. Arguments = $app
-     *  "transform_content" - transform content for view. Arguments = $file, $content
-     */
-    function call_hook($name, ...$params) {
-        if (isset($this->hooks[$name])) {
-            if (count($params) === 0) {
-                $params = [$this];
-            }
-            return call_user_func_array($this->hooks[$name], $params);
-        }
-        return false;
-    }
-    
-    function init_parsedown() {
-        $this->parsedown = new ParsedownExtra();
-    }
-    
-    function init_theme() {
-        // Invoke theme/<theme_name>/<theme_name>.php if exists
-        if ($this->theme !== null) {
-            $app = $this; // expose this var to theme script
-            $theme_file = FIREPAGE_THEME_DIR . "/{$this->theme}/{$this->theme}.php";
-            if (file_exists($theme_file)) {
-                require_once $theme_file;
-            }
-        }
-    }
-
-    /** 
-     * It looks for script named <page_name>.php, or page-<page_ext>.php in theme to process request. If the script
-     * exist, it should return page object for view to render, else returns null response has already been 
-     * processed. (no view needed).
-     */
-    function process_theme_request() {
-        // These $app and $page variables will be expose to theme.
-        $app = $this;
-        $page = $this->page;
-        $page->parent_url_path = dirname($this->page->url_path);
-        $page->theme_url = $page->parent_url_path . "themes/" . $this->theme;
-        if ($this->theme !== null) {
-            $page_ext = pathinfo($this->page->page, PATHINFO_EXTENSION);
-            $page_name_file = FIREPAGE_THEME_DIR . "/{$this->theme}/{$this->page->page}.php";
-            $page_ext_file = FIREPAGE_THEME_DIR . "/{$this->theme}/page-{$page_ext}.php";
-            
-            if (file_exists($page_name_file)) {
-                // Process by page name
-                $page = require_once $page_name_file;
-            } else if (file_exists($page_ext_file)) {
-                // Process by page extension
-                $page = require_once $page_ext_file;
-            }
-        }
         
-        return $page;
-    }
-    
-    /** Return page object for view to render, else returns null response has already been processed. (no view needed) */
-    function process_request() {        
         // If this is admin request, and if password is enabled start session
-        if ($this->page->is_admin && $this->is_password_enabled()) {
+        if ($page->is_admin && $this->is_password_enabled()) {
             if (!session_start()) {
                 die("Unable to create PHP session!");
             }
-            
+
             // If admin session is not set, then force action to be login first.
             if (!$this->is_logged_in()) {
-                $this->page->action = "login";
+                $page->action = "login";
             }
         }
-        
-        // Process Request and return $this->page var
-        $action = $this->page->action;
+
+        // Process Request and return $page var
+        $action = $page->action;
 
         // Process POST requests
         if (isset($_POST['action'])) {
-            $this->page->action = $_POST['action'];
+            $page->action = $_POST['action'];
 
-            $action = $this->page->action;
+            $action = $page->action;
             if ($action === 'login_submit') {
                 $password = $_POST['password'];
                 $admin_password = $this->admin_password;
-                
-                $this->page->form_error = $this->login($password, $admin_password);
-                if ($this->page->form_error === null) {
-                    $this->redirect($this->page->controller);
+
+                $page->form_error = $this->login($password, $admin_password);
+                if ($page->form_error === null) {
+                    $this->redirect($page->controller_url);
                 }
             } else if ($action === 'new_submit' || $action === 'edit_submit') {
-                $this->page->page = $_POST['page'];
-                $this->page->file_content = $_POST['file_content'];
-                
-                $file = $this->page->page;
-                $file_content = $this->page->file_content;
-                if ($this->page->form_error === null) {
+                $page->page_name = $_POST['page'];
+                $page->file_content = $_POST['file_content'];
+
+                $file = $page->page_name;
+                $file_content = $page->file_content;
+                if ($page->form_error === null) {
                     $is_exists_check = $action === 'new_submit';
-                    $this->page->form_error = $this->validate_note_name($file, $is_exists_check);
+                    $page->form_error = $this->validate_note_name($file, $is_exists_check);
                 }
-                if ($this->page->form_error === null) {
-                    $this->page->form_error = $this->validate_note_content($file_content);
+                if ($page->form_error === null) {
+                    $page->form_error = $this->validate_note_content($file_content);
                 }
-                if ($this->page->form_error === null) {
+                if ($page->form_error === null) {
                     $this->write($file, $file_content);
-                    $this->redirect($this->page->controller . "page=$file");
+                    $this->redirect($page->controller_url . "page=$file");
                 }
             } else {
                 die("Unknown action=$action");
             }
         } else {
             // Process GET request
-            $is_admin = $this->page->is_admin;
-            if ($is_admin) {                
+            $is_admin = $page->is_admin;
+            if ($is_admin) {
                 if ($action === 'new') {
-                    $this->page->page = '';
-                    $this->page->file_content = '';
+                    $page->page_name = '';
+                    $page->file_content = '';
                 } else if ($action === 'edit') {
                     // Process GET Edit Form
-                    $file = $this->page->page;
+                    $file = $page->page_name;
                     if ($this->exists($file)) {
-                        $this->page->file_content = $this->read($file);
+                        $page->file_content = $this->read($file);
                     } else {
-                        $this->page->file_content = "File not found: $file";
+                        $page->file_content = "File not found: $file";
                     }
                 } else if ($action === 'delete-confirmed') {
                     // Process GET - DELETE file
-                    $file = $this->page->page;
-                    $delete_status = &$this->page->delete_status; // Use Ref
+                    $file = $page->page_name;
+                    $delete_status = &$page->delete_status; // Use Ref
                     if ($this->delete($file)) {
                         $delete_status = "File $file deleted";
                     } else {
@@ -208,40 +175,47 @@ class FirePageApp {
                     }
                 } else if ($action === 'logout') {
                     $this->logout();
-                    $this->redirect($this->page->controller);
+                    $this->redirect($page->controller_url);
                 } else if ($action === 'page') {
-                    $this->page->file_content = $this->get_file_content($this->page->page);
+                    $page->file_content = $this->get_file_content($page->page_name);
                 }
             } else {
                 // GET - Not Admin Actions
                 if ($action === 'page'){
-                    $this->page->file_content = $this->get_file_content($this->page->page);
+                    $page->file_content = $this->get_file_content($page->page_name);
                 } else {
                     die("Unknown action=$action");
                 }
             }
         }
         
-        return $this->process_theme_request();
-    }
-    
-    function transform_content($file, $content) {
-        // Check "transform_content" hook
-        $ret = $this->call_hook("transform_content", $file, $content);
-        if ($ret === false) {
-            if ($this->ends_with($file, '.md') || $this->ends_with($file, '.markdown')) {
-                $ret = $this->convert_to_markdown($content);
-            } else if ($this->ends_with($file, '.txt')) {
-                $ret = "<pre>" . htmlentities($content) . "</pre>";
-            } else if ($this->ends_with($file, '.json')) {
-                $ret = "<pre>" . $content . "</pre>";
-            } else {
-                $ret = $content; // Default is original content.
-            }
+        // Let Theme process request that can modify $page object if needed.
+        if ($this->process_theme_request($page) === false) {
+            return $this->create_view($page);
         }
-        return $ret;
     }
     
+    function create_view($page) {
+        return new FirePageView($this, $page);
+    }
+
+    function transform_content($file, $content) {
+        if ($content === '') {
+            $content = '<i>This page is empty!</i>';
+        }
+
+        if (FirePageUtils::ends_with($file, '.md') || FirePageUtils::ends_with($file, '.markdown')) {
+            $content = $this->convert_to_markdown($content);
+        } else if (FirePageUtils::ends_with($file, '.txt')) {
+            $content = "<pre>" . htmlentities($content) . "</pre>";
+        } else if (FirePageUtils::ends_with($file, '.json')) {
+            $content = "<pre>" . $content . "</pre>";
+        } else {
+            $content = $content; // Default is original content.
+        }
+        return $content;
+    }
+
     function get_file_content($file) {
         if($this->exists($file) &&
             $this->validate_note_name($file, false) === null) {
@@ -251,22 +225,12 @@ class FirePageApp {
             return "File not found: $file";
         }
     }
-    
-    static function ends_with($str, $sub_str) {
-        $len = strlen($sub_str);
-        return substr_compare($str, $sub_str, -$len) === 0;
-    }
 
-    static function starts_with($str, $sub_str) {
-        $len = strlen($sub_str);
-        return substr_compare($str, $sub_str, 0, $len) === 0;
-    }
-    
     function is_file_excluded($dir_file) {
         if (count($this->exclude_file_list) > 0) {
             foreach($this->exclude_file_list as $exclude) {
                 // Exclude in relative to the root_dir
-                if ($this->starts_with("$dir_file", "$this->root_dir/$exclude")) {
+                if (FirePageUtils::starts_with("$dir_file", "$this->root_dir/$exclude")) {
                     return true; // break
                 }
             }
@@ -285,7 +249,7 @@ class FirePageApp {
                     continue;
                 }
                 foreach ($this->file_extension_list as $ext) {
-                    if (!$this->starts_with($file, '.') && $this->ends_with($file, $ext)) {
+                    if (!FirePageUtils::starts_with($file, '.') && FirePageUtils::ends_with($file, $ext)) {
                         array_push($ret, $file);
                         break;
                     }
@@ -303,7 +267,7 @@ class FirePageApp {
             $dir_file = "$dir/$file";
             if (is_dir($dir_file)) {
                 // Do not include hidden dot folders or from exclusion list
-                if (!$this->starts_with($file, '.') && !$this->is_file_excluded($dir_file)) {
+                if (!FirePageUtils::starts_with($file, '.') && !$this->is_file_excluded($dir_file)) {
                     array_push($ret, $file);
                 }
             }
@@ -330,19 +294,6 @@ class FirePageApp {
 
     function delete($file) {
         return $this->exists($file) && unlink($this->root_dir . "/" . $file);
-    }
-    
-    function read_config($config_file) {
-        if (file_exists($config_file)) {
-            $json = file_get_contents($config_file);
-            $config = json_decode($json, true);
-            if ($config === null) {
-                die("Invalid config JSON file: $config_file");
-            }
-            
-            return $config;
-        }
-        return array();
     }
 
     /** This method will EXIT! */
@@ -376,11 +327,11 @@ class FirePageApp {
     function is_logged_in() {
         return $this->get_admin_session() !== null;
     }
-    
+
     function convert_to_markdown($plain_text) {
         return $this->parsedown->text($plain_text);
     }
-    
+
     function validate_note_name($name, $is_exists_check) {
         $ext_list = $this->file_extension_list;
         $max_depth = $this->max_menu_levels;
@@ -439,7 +390,7 @@ class FirePageApp {
             $this->sort_menu_links($menu_link);
         }
     }
-    
+
     function remap_menu_links(&$menu_link) {
         if (count($this->files_to_menu_links) === 0) {
             return;
@@ -466,25 +417,7 @@ class FirePageApp {
             }
         }
     }
-    
-    function get_menu_links() {
-        $menu_links = null;
-        if ($this->page->is_admin) {
-            $menu_links = $this->get_menu_links_tree($this->default_dir_name, $this->max_menu_levels);
-        } else {
-            if ($this->menu_links !== null) {
-                // If config has manually given menu_links, return just that.
-                $menu_links = $this->menu_links;
-            } else {
-                // Else, auto generate menu_links bsaed on dirs/files listing
-                $menu_links = $this->get_menu_links_tree($this->default_dir_name, $this->max_menu_levels);
-                $this->remap_menu_links($menu_links);
-            }
-            $this->sort_menu_links($menu_links);
-        }
-        return $menu_links;
-    }
-    
+
     function pretty_file_to_label($file) {
         if (!$this->pretty_file_to_label) {
             return $file;
@@ -535,18 +468,66 @@ class FirePageApp {
         return $menu_links;
     }
 
-    function echo_menu_links($menu_links) {
+}
+
+/** A Page context/map to store any data for View to use. */
+class FirePageContext {
+    public FirePageController $app;
+    
+    function __construct(FirePageController $app) {
+        $this->app = $app;
+    }
+}
+
+/** A View class that will render default theme UI. */
+class FirePageView {
+    public FirePageController $app;
+    public FirePageContext $page;
+
+    function __construct(FirePageController $app, FirePageContext $page) {
+        $this->app = $app;
+        $this->page = $page;
+    }
+
+    function get_menu_links() {
+        $app = $this->app;        
+        $page = $this->page;
+        $menu_links = null;
+        if ($page->is_admin) {
+            $menu_links = $app->get_menu_links_tree($this->app->default_dir_name, $this->app->max_menu_levels);
+        } else {
+            if ($app->menu_links !== null) {
+                // If config has manually given menu_links, return just that.
+                $menu_links = $app->menu_links;
+            } else {
+                // Else, auto generate menu_links bsaed on dirs/files listing
+                $menu_links = $app->get_menu_links_tree($this->app->default_dir_name, $this->app->max_menu_levels);
+                $app->remap_menu_links($menu_links);
+            }
+            $app->sort_menu_links($menu_links);
+        }
+        return $menu_links;
+    }
+
+    function echo_menu_links($menu_links = null) {
+        $app = $this->app;
+        $page = $this->page;
+        
+        if ($menu_links === null) {
+            $menu_links = $this->get_menu_links();
+        }
+        
         echo "<p class='menu-label'>{$menu_links['menu_label']}</p>";
         echo "<ul class='menu-list'>";
 
-        $active_file = $this->page->page;
-        $controller = $this->page->controller;
+        $active_file = $page->page_name;
+        $controller = $page->controller_url;
         $i = 0; // Use to track last item in loop
         $files_len = count($menu_links['links']);
         foreach ($menu_links['links'] as $link) {
             $file = $link['page'];
             $label = $link['label'];
-            $path_name = $this->default_dir_name ? "{$this->default_dir_name}/$file" : $file;
+            $path_name = $app->default_dir_name ? "{$app->default_dir_name}/$file" : $file;
             $is_active = ($path_name === $active_file) ? "is-active": "";
             echo "<li><a class='$is_active' href='{$controller}page=$path_name'>$label</a>";
             if ($i++ < ($files_len - 1)) {
@@ -560,238 +541,302 @@ class FirePageApp {
         echo "</li>"; // Last menu item
         echo "</ul>";
     }
-    
-    function echo_content($content) {
-        if ($content === '') {
-            echo "<i>This note is empty!</i>";
-        } else {
-            echo $content;
-        }
-    }
-}
 
-//
-// ### App Entry
-// - Note that you must not generate any output before starting the PHP session!
-//
-$app = new FirePageApp();
-$page = $app->process_request();
-if ($page === null) {
-    // Page already processed by theme
-    exit;
-}
-?>
-<!doctype html>
-<html lang="en">
-<head>    
-    <?php if (!$app->call_hook('head')) { ?>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
-        <link rel="stylesheet" href="https://unpkg.com/bulma@0.9.1/css/bulma.min.css">
-
-        <?php if ($page->is_admin && ($page->action === 'new' || $page->action === 'edit')) { ?>
-            <link rel="stylesheet" href="https://unpkg.com/codemirror@5.58.2/lib/codemirror.css">
-            <script src="https://unpkg.com/codemirror@5.58.2/lib/codemirror.js"></script>
-            <script src="https://unpkg.com/codemirror@5.58.2/addon/mode/overlay.js"></script>
-            <script src="https://unpkg.com/codemirror@5.58.2/mode/javascript/javascript.js"></script>
-            <script src="https://unpkg.com/codemirror@5.58.2/mode/css/css.js"></script>
-            <script src="https://unpkg.com/codemirror@5.58.2/mode/xml/xml.js"></script>
-            <script src="https://unpkg.com/codemirror@5.58.2/mode/htmlmixed/htmlmixed.js"></script>
-            <script src="https://unpkg.com/codemirror@5.58.2/mode/markdown/markdown.js"></script>
-            <script src="https://unpkg.com/codemirror@5.58.2/mode/gfm/gfm.js"></script>
-        <?php } ?>
-
-        <title><?php echo $app->title; ?></title>
-    <?php } ?>
-</head>
-<body>
-
-<?php if ($page->is_admin) { ?>
-    <div class="navbar">
-        <div class="navbar-brand">
-            <div class="navbar-item">
-                <a class="title" href='<?php echo $page->controller; ?>'><?php echo $app->title; ?></a>
-            </div>
-        </div>
-        <div class="navbar-end">
-            <?php if ($page->is_admin && $page->action === 'page' && (!$app->is_password_enabled() || $app->is_logged_in())) { ?>
-            <div class="navbar-item">
-                <a href="<?php echo $page->controller; ?>action=edit&page=<?= $page->page ?>">EDIT</a>
-            </div>
-            <div class="navbar-item">
-                <a href="<?php echo $page->controller; ?>action=delete&page=<?= $page->page ?>">DELETE</a>
-            </div>
+    function echo_header() {
+        $app = $this->app;
+        $page = $this->page;
+        // Start of view template
+        ?>
+        <!doctype html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+            <link rel="stylesheet" href="https://unpkg.com/bulma@0.9.1/css/bulma.min.css">
+        
+            <?php if ($page->is_admin && ($page->action === 'new' || $page->action === 'edit')) { ?>
+                <link rel="stylesheet" href="https://unpkg.com/codemirror@5.58.2/lib/codemirror.css">
+                <script src="https://unpkg.com/codemirror@5.58.2/lib/codemirror.js"></script>
+                <script src="https://unpkg.com/codemirror@5.58.2/addon/mode/overlay.js"></script>
+                <script src="https://unpkg.com/codemirror@5.58.2/mode/javascript/javascript.js"></script>
+                <script src="https://unpkg.com/codemirror@5.58.2/mode/css/css.js"></script>
+                <script src="https://unpkg.com/codemirror@5.58.2/mode/xml/xml.js"></script>
+                <script src="https://unpkg.com/codemirror@5.58.2/mode/htmlmixed/htmlmixed.js"></script>
+                <script src="https://unpkg.com/codemirror@5.58.2/mode/markdown/markdown.js"></script>
+                <script src="https://unpkg.com/codemirror@5.58.2/mode/gfm/gfm.js"></script>
             <?php } ?>
-        </div>
-    </div>
-<?php } ?>
-
-<?php if ($page->is_admin && ($app->is_password_enabled() && !$app->is_logged_in())) {?>
-    <section class="section">
-        <?php if ($page->form_error !== null) { ?>
-        <div class="notification is-danger"><?php echo $page->form_error; ?></div>
-        <?php } ?>
-        <div class="level">
-            <div class="level-item has-text-centered">
-                <form method="POST" action="<?php echo $page->controller; ?>">
-                    <input type="hidden" name="action" value="login_submit">
-                    <div class="field">
-                        <div class="label">Admin Password</div>
-                        <div class="control"><input class="input" type="password" name="password"></div>
-                    </div>
-                    <div class="field">
-                        <div class="control">
-                            <input class="button is-info" type="submit" name="submit" value="Login">
-                        </div>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </section>
-<?php } else { /* Not login form. */ ?>
-    <?php if ($page->is_admin) { ?>
-        <section class="section">
-            <div class="columns">
-                <div class="column is-3 menu">
-                    <p class="menu-label">Admin</p>
-                    <ul class="menu-list">
-                        <li><a href='<?php echo $page->controller; ?>action=new'>New</a></li>
         
-                        <?php if ($app->is_logged_in()) { ?>
-                            <li><a href='<?php echo $page->controller . "action=logout"; ?>'>Logout</a></li>
-                        <?php } else { ?>
-                            <li><a href='<?php echo $page->url_path; ?>'>Exit</a></li>
-                        <?php } ?>
-                    </ul>
+            <title><?php echo $app->title; ?></title>
+        </head>
+        <body>
+        <?php // End of view template
+    }
+    
+    function echo_body() {
+        $app = $this->app;
+        $page = $this->page;
         
-                    <?php $app->echo_menu_links($app->get_menu_links()); ?>
+        // Start of view template
+        ?>
+        
+        <?php if ($page->is_admin) { ?>
+            <div class="navbar">
+                <div class="navbar-brand">
+                    <div class="navbar-item">
+                        <a class="title" href='<?php echo $page->controller_url; ?>'><?php echo $app->title; ?></a>
+                    </div>
                 </div>
-                <div class="column is-9">
-                    <?php if ($page->action === 'new' || $page->action === 'new_submit') { ?>
-                        <?php if ($page->form_error !== null) { ?>
-                            <div class="notification is-danger"><?php echo $page->form_error; ?></div>
-                        <?php } ?>
-                        <form method="POST" action="<?php echo $page->controller; ?>">
-                            <input type="hidden" name="action" value="new_submit">
-                            <div class="field">
-                                <div class="label">File Name</div>
-                                <div class="control"><input id='file_name' class="input" type="text" name="page" value="<?php echo $page->page ?>"></div>
-                            </div>
-                            <div class="field">
-                                <div class="label">Markdown</div>
-                                <div class="control"><textarea id='file_content' class="textarea" rows="20" name="file_content"><?php echo $page->file_content ?></textarea></div>
-                            </div>
-                            <div class="field">
-                                <div class="control">
-                                    <input class="button is-info" type="submit" name="submit" value="Create">
-                                    <a class="button" href="<?php echo $page->controller; ?>">Cancel</a>
-                                </div>
-                            </div>
-                        </form>
-                    <?php } else if ($page->action === 'edit' || $page->action === 'edit_submit') { ?>
-                        <form method="POST" action="<?php echo $page->controller; ?>">
-                            <input type="hidden" name="action" value="edit_submit">
-                            <div class="field">
-                                <div class="label">File Name</div>
-                                <div class="control"><input id='file_name' class="input" type="text" name="page" value="<?= $page->page ?>"></div>
-                            </div>
-                            <div class="field">
-                                <div class="label">Markdown</div>
-                                <div class="control"><textarea id='file_content' class="textarea" rows="20" name="file_content"><?= $page->file_content ?></textarea></div>
-                            </div>
-                            <div class="field">
-                                <div class="control">
-                                    <input class="button is-info" type="submit" name="submit" value="Update">
-                                    <a class="button" href="<?php echo $page->controller; ?>page=<?= $page->page ?>">Cancel</a>
-                                </div>
-                            </div>
-                        </form>
-                    <?php } else if ($page->action === 'delete') { ?>
-                        <div class="message is-danger">
-                            <div class="message-header">Delete Confirmation</div>
-                            <div class="message-body">
-                                <p class="block">Are you sure you want to delete <b><?= $page->page ?></b>?</p>
-        
-                                <a class="button is-info" href="<?php echo $page->controller; ?>action=delete-confirmed&page=<?= $page->page ?>">Delete</a>
-                                <a class="button" href="<?php echo $page->controller; ?>page=<?= $page->page ?>">Cancel</a>
-                            </div>
-                        </div>
-                    <?php } else if ($page->action === 'delete-confirmed') { ?>
-                        <div class="message is-success">
-                            <div class="message-header">Deleted!</div>
-                            <div class="message-body">
-                                <p class="block"><?php echo $page->delete_status; ?></p>
-                            </div>
-                        </div>
-                    <?php } else if ($page->action === 'page') { ?>
-                        <div class="content">
-                            <?php $app->echo_content($page->file_content); ?>
-                        </div>
-                    <?php } else { ?>
-                        <div class="message is-warning">
-                            <div class="message-header">Oops!</div>
-                            <div class="message-body">
-                                <p class="block">We can not process this action: <?php echo $page->action ; ?></p>
-                            </div>
-                        </div>
+                <div class="navbar-end">
+                    <?php if ($page->is_admin && $page->action === 'page' && (!$app->is_password_enabled() || $app->is_logged_in())) { ?>
+                    <div class="navbar-item">
+                        <a href="<?php echo $page->controller_url; ?>action=edit&page=<?= $page->page_name ?>">EDIT</a>
+                    </div>
+                    <div class="navbar-item">
+                        <a href="<?php echo $page->controller_url; ?>action=delete&page=<?= $page->page_name ?>">DELETE</a>
+                    </div>
                     <?php } ?>
                 </div>
             </div>
-        </section>
-        <?php if ($page->action === 'new' || $page->action === 'edit') { ?>
-            <script>
-                function getCodeMirrorMode(fileName) {
-                    var mode = fileName.split('.').pop();
-                    if (mode === 'md') {
-                        // ext = 'markdown';
-                        mode = 'gfm'; // Use GitHub Flavor Markdown
-                    } else if (mode === 'json') {
-                        mode = {name: 'javascript', json: true};
-                    } else if (mode === 'html') {
-                        mode = 'htmlmixed';
-                    }
-                    return mode;
-                }
-                
-                // Load CodeMirror with Markdown (GitHub Flavor Markdown) syntax highlight
-                var fileNameEl = document.getElementById('file_name');
-                var editor = CodeMirror.fromTextArea(document.getElementById('file_content'), {
-                    lineNumbers: true,
-                    mode: getCodeMirrorMode(fileNameEl.value),
-                    theme: 'default',
-                });
-                editor.setSize(null, '500');
-                
-                // Listen to FileName focus change then trigger editor mode change
-                fileNameEl.addEventListener('focusout', (event) => {
-                    var name = event.target.value;
-                    var mode = getCodeMirrorMode(name);
-                    editor.setOption('mode', mode);
-                });
-            </script>
-        <?php } /* End of new/edit form for <script> tag */?>
-    <?php } else { /* Not admin page */?>
-        <section class="section">
-            <div class="columns">
-                <div class="column is-3 menu">
-                    <?php $app->echo_menu_links($app->get_menu_links()); ?>
-                </div>
-                <div class="column is-9">
-                    <div class="content">
-                        <?php $app->echo_content($page->file_content); ?>
+        <?php } ?>
+        
+        <?php if ($page->is_admin && ($app->is_password_enabled() && !$app->is_logged_in())) {?>
+            <section class="section">
+                <?php if ($page->form_error !== null) { ?>
+                <div class="notification is-danger"><?php echo $page->form_error; ?></div>
+                <?php } ?>
+                <div class="level">
+                    <div class="level-item has-text-centered">
+                        <form method="POST" action="<?php echo $page->controller_url; ?>">
+                            <input type="hidden" name="action" value="login_submit">
+                            <div class="field">
+                                <div class="label">Admin Password</div>
+                                <div class="control"><input class="input" type="password" name="password"></div>
+                            </div>
+                            <div class="field">
+                                <div class="control">
+                                    <input class="button is-info" type="submit" name="submit" value="Login">
+                                </div>
+                            </div>
+                        </form>
                     </div>
                 </div>
-            </div>
-        </section>
-    <?php } /* End of Not admin page */ ?>
-<?php } /* End of Not login form. */ ?>
+            </section>
+        <?php } else { /* Not login form. */ ?>
+            <?php if ($page->is_admin) { ?>
+                <section class="section">
+                    <div class="columns">
+                        <div class="column is-3 menu">
+                            <p class="menu-label">Admin</p>
+                            <ul class="menu-list">
+                                <li><a href='<?php echo $page->controller_url; ?>action=new'>New</a></li>
+                
+                                <?php if ($app->is_logged_in()) { ?>
+                                    <li><a href='<?php echo $page->controller_url . "action=logout"; ?>'>Logout</a></li>
+                                <?php } else { ?>
+                                    <li><a href='<?php echo $page->url_path; ?>'>Exit</a></li>
+                                <?php } ?>
+                            </ul>
+                
+                            <?php $this->echo_menu_links(); ?>
+                        </div>
+                        <div class="column is-9">
+                            <?php if ($page->action === 'new' || $page->action === 'new_submit') { ?>
+                                <?php if ($page->form_error !== null) { ?>
+                                    <div class="notification is-danger"><?php echo $page->form_error; ?></div>
+                                <?php } ?>
+                                <form method="POST" action="<?php echo $page->controller_url; ?>">
+                                    <input type="hidden" name="action" value="new_submit">
+                                    <div class="field">
+                                        <div class="label">File Name</div>
+                                        <div class="control"><input id='file_name' class="input" type="text" name="page" value="<?php echo $page->page_name ?>"></div>
+                                    </div>
+                                    <div class="field">
+                                        <div class="label">Markdown</div>
+                                        <div class="control"><textarea id='file_content' class="textarea" rows="20" name="file_content"><?php echo $page->file_content ?></textarea></div>
+                                    </div>
+                                    <div class="field">
+                                        <div class="control">
+                                            <input class="button is-info" type="submit" name="submit" value="Create">
+                                            <a class="button" href="<?php echo $page->controller_url; ?>">Cancel</a>
+                                        </div>
+                                    </div>
+                                </form>
+                            <?php } else if ($page->action === 'edit' || $page->action === 'edit_submit') { ?>
+                                <form method="POST" action="<?php echo $page->controller_url; ?>">
+                                    <input type="hidden" name="action" value="edit_submit">
+                                    <div class="field">
+                                        <div class="label">File Name</div>
+                                        <div class="control"><input id='file_name' class="input" type="text" name="page" value="<?= $page->page_name ?>"></div>
+                                    </div>
+                                    <div class="field">
+                                        <div class="label">Markdown</div>
+                                        <div class="control"><textarea id='file_content' class="textarea" rows="20" name="file_content"><?= $page->file_content ?></textarea></div>
+                                    </div>
+                                    <div class="field">
+                                        <div class="control">
+                                            <input class="button is-info" type="submit" name="submit" value="Update">
+                                            <a class="button" href="<?php echo $page->controller_url; ?>page=<?= $page->page_name ?>">Cancel</a>
+                                        </div>
+                                    </div>
+                                </form>
+                            <?php } else if ($page->action === 'delete') { ?>
+                                <div class="message is-danger">
+                                    <div class="message-header">Delete Confirmation</div>
+                                    <div class="message-body">
+                                        <p class="block">Are you sure you want to delete <b><?= $page->page_name ?></b>?</p>
+                
+                                        <a class="button is-info" href="<?php echo $page->controller_url; ?>action=delete-confirmed&page=<?= $page->page_name ?>">Delete</a>
+                                        <a class="button" href="<?php echo $page->controller_url; ?>page=<?= $page->page_name ?>">Cancel</a>
+                                    </div>
+                                </div>
+                            <?php } else if ($page->action === 'delete-confirmed') { ?>
+                                <div class="message is-success">
+                                    <div class="message-header">Deleted!</div>
+                                    <div class="message-body">
+                                        <p class="block"><?php echo $page->delete_status; ?></p>
+                                    </div>
+                                </div>
+                            <?php } else if ($page->action === 'page') { ?>
+                                <div class="content">
+                                    <?php echo $page->file_content; ?>
+                                </div>
+                            <?php } else { ?>
+                                <div class="message is-warning">
+                                    <div class="message-header">Oops!</div>
+                                    <div class="message-body">
+                                        <p class="block">We can not process this action: <?php echo $page->action ; ?></p>
+                                    </div>
+                                </div>
+                            <?php } ?>
+                        </div>
+                    </div>
+                </section>
+                <?php if ($page->action === 'new' || $page->action === 'edit') { ?>
+                    <script>
+                        function getCodeMirrorMode(fileName) {
+                            var mode = fileName.split('.').pop();
+                            if (mode === 'md') {
+                                // ext = 'markdown';
+                                mode = 'gfm'; // Use GitHub Flavor Markdown
+                            } else if (mode === 'json') {
+                                mode = {name: 'javascript', json: true};
+                            } else if (mode === 'html') {
+                                mode = 'htmlmixed';
+                            }
+                            return mode;
+                        }
+                        
+                        // Load CodeMirror with Markdown (GitHub Flavor Markdown) syntax highlight
+                        var fileNameEl = document.getElementById('file_name');
+                        var editor = CodeMirror.fromTextArea(document.getElementById('file_content'), {
+                            lineNumbers: true,
+                            mode: getCodeMirrorMode(fileNameEl.value),
+                            theme: 'default',
+                        });
+                        editor.setSize(null, '500');
+                        
+                        // Listen to FileName focus change then trigger editor mode change
+                        fileNameEl.addEventListener('focusout', (event) => {
+                            var name = event.target.value;
+                            var mode = getCodeMirrorMode(name);
+                            editor.setOption('mode', mode);
+                        });
+                    </script>
+                <?php } /* End of new/edit form for <script> tag */?>
+            <?php } else { /* Not admin page */?>
+                <section class="section">
+                    <div class="columns">
+                        <div class="column is-3 menu">
+                            <?php $this->echo_menu_links(); ?>
+                        </div>
+                        <div class="column is-9">
+                            <div class="content">
+                                <?php echo $page->file_content; ?>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            <?php } /* End of Not admin page */ ?>
+        <?php } /* End of Not login form. */ ?>
 
+        <?php // End of view template
+    }
+    
+    function echo_footer() {
+        $version = FIREPAGE_VERSION;
+        echo <<< EOT
 <div class="footer">
-    <p>Powered by <a href="https://github.com/zemian/firepage">FirePage <?php echo FIREPAGE_VERSION; ?></a></p>
+    <p>Powered by <a href="https://github.com/zemian/firepage">FirePage $version</a></p>
 </div>
 
 </body>
 </html>
+EOT;
+    }
+}
+
+class FirePageUtils {
+    static function ends_with($str, $sub_str) {
+        $len = strlen($sub_str);
+        return substr_compare($str, $sub_str, -$len) === 0;
+    }
+
+    static function starts_with($str, $sub_str) {
+        $len = strlen($sub_str);
+        return substr_compare($str, $sub_str, 0, $len) === 0;
+    }
+}
+//
+// ### Main App Entry
+//
+class FirePage {    
+    function read_config($config_file) {
+        if (file_exists($config_file)) {
+            $json = file_get_contents($config_file);
+            $config = json_decode($json, true);
+            if ($config === null) {
+                die("Invalid config JSON file: $config_file");
+            }
+
+            return $config;
+        }
+        return array();
+    }
+
+    function init_theme($app_controller, $config) {
+        $theme = $config['theme'] ?? null; // theme name
+        // Invoke theme/<theme_name>/<theme_name>.php if exists
+        if ($theme !== null) {
+            $app = $app_controller; // expose var to theme
+            $theme_file = FIREPAGE_THEME_DIR . "/{$theme}/{$theme}.php";
+            if (file_exists($theme_file)) {
+                require_once $theme_file;
+            }
+        }
+    }
+
+    function run () {
+        // Read in external config file for override
+        $config_file = getenv(FIREPAGE_CONFIG_ENV_KEY) ?: (FIREPAGE_DEAFULT_ROOT_DIR . "/" . FIREPAGE_CONFIG_NAME);
+        $config = $this->read_config($config_file);
+        
+        // Instantiate app controller and process the request
+        $app_controller_class = $config['app_controller_class'] ?? 'FirePageController';
+        $app = new $app_controller_class($config);
+        $this->init_theme($app, $config);
+        $view = $app->process_request();
+        if ($view !== null) {
+            $view->echo_header();
+            $view->echo_body();
+            $view->echo_footer();
+        }
+    }
+}
+
+// Run it
+$main = new FirePage();
+$main->run();
+?>
 
 <?php
 //
