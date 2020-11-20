@@ -37,14 +37,13 @@ class FirePageController {
     var bool $pretty_file_to_label;
     var ?array $menu_links;
     var ?string $theme;
+    var object $md_parser;
     
     function __construct($config) {
         $this->config = $config;
-    }
-    
-    function init() {
+
         $config = $this->config;
-        
+
         // Init config parameters into class properties
         $this->root_dir = ($config['root_dir'] ?? '') ?: FIREPAGE_DEAFULT_ROOT_DIR;
         $this->title = $config['title'] ?? 'FirePage';
@@ -61,13 +60,17 @@ class FirePageController {
         // Optional config params that defaut to null values if not set
         $this->menu_links = $config['menu_links'] ?? null;
         $this->theme = $config['theme'] ?? null;
-        
-        // Init service
-        $this->init_parsedown();
+
+        // Markdown parser
+        $this->md_parser = $this->create_markdown_parser();
+    }
+    
+    function init() {
+        // Do nothing for now.
     }
 
-    function init_parsedown() {
-        $this->parsedown = new ParsedownExtra();
+    function create_markdown_parser() {
+        return new ParsedownExtra();
     }
     
     function destroy() {
@@ -352,7 +355,7 @@ class FirePageController {
     }
 
     function convert_to_markdown($plain_text) {
-        return $this->parsedown->text($plain_text);
+        return $this->md_parser->text($plain_text);
     }
 
     function validate_note_name($name, $is_exists_check) {
@@ -501,8 +504,8 @@ class FirePageContext {
     var bool $is_admin;
     var string $url_path;
     var string $file_content;
-    var string $form_error;
-    var string $delete_status;
+    var ?string $form_error;
+    var ?string $delete_status;
     var string $controller_url;
     var bool $no_view = false;
     
@@ -611,7 +614,7 @@ EOT;
 EOT;
     }
     
-    function echo_body() {
+    function echo_body_content() {
         $app = $this->app;
         $page = $this->page;
         
@@ -871,7 +874,7 @@ class FirePage {
         $view = $app->process_request();
         if ($view !== null) {
             $view->echo_header();
-            $view->echo_body();
+            $view->echo_body_content();
             $view->echo_footer();
         }
         $app->destroy();
