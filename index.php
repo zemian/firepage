@@ -12,7 +12,7 @@
 //
 
 // Global Vars
-define('FIREPAGE_VERSION', '1.4.0');
+define('FIREPAGE_VERSION', '1.5.0-SNAPSHOT');
 define('FIREPAGE_CONFIG_ENV_KEY', 'FIREPAGE_CONFIG');
 define('FIREPAGE_CONFIG_NAME', '.firepage.json');
 define('FIREPAGE_DEAFULT_ROOT_DIR', __DIR__);
