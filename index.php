@@ -94,6 +94,7 @@ class FirePageController {
             $page_ext = pathinfo($page->page_name, PATHINFO_EXTENSION);
             $page_name_file = FIREPAGE_THEME_DIR . "/{$app->theme}/{$page->page_name}.php";
             $page_ext_file = FIREPAGE_THEME_DIR . "/{$app->theme}/page-{$page_ext}.php";
+            $page_file = FIREPAGE_THEME_DIR . "/{$app->theme}/page.php";
 
             if (file_exists($page_name_file)) {
                 // Process by page name
@@ -101,6 +102,9 @@ class FirePageController {
             } else if (file_exists($page_ext_file)) {
                 // Process by page extension
                 $ret = require_once $page_ext_file;
+            } else if (file_exists($page_file)) {
+                // Process by explicit 'page.php'
+                $ret = require_once $page_file;
             }
         }
         return $ret;
