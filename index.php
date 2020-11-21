@@ -126,11 +126,9 @@ class FirePageController {
                 $this->url_path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
                 $this->controller_url = $this->url_path . '?' . ($this->is_admin ? 'admin=true&' : '');
                 
-                // If we are in admin page and no page parameter given, default to give param
-                if ($this->is_admin && !isset($_GET['page'])) {
-                    if ($app->exists($app->default_admin_file_name)) {
-                        $this->page_name = $app->default_admin_file_name;
-                    }
+                // Set default admin page if exists
+                if ($this->is_admin && !isset($_GET['page']) && $app->exists($app->default_admin_file_name)) {
+                    $this->page_name = $app->default_admin_file_name;
                 }
             }
         };
