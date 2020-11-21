@@ -1,10 +1,10 @@
 <?php
 /**
- * FirePage is a single `index.php` page application for managing Markdown notes.
+ * FFirePage is a file based CMS application with just one single `index.php` file!
  *
  * Project Home: https://github.com/zemian/firepage
+ * Project Owner: Zemian Deng
  * License: The MIT License (MIT)
- * Author: Zemian Deng
  */
 
 //
@@ -12,7 +12,7 @@
 //
 
 // Global Vars
-define('FIREPAGE_VERSION', '1.5.0-SNAPSHOT');
+define('FIREPAGE_VERSION', '1.0.0-SNAPSHOT');
 define('FIREPAGE_CONFIG_ENV_KEY', 'FIREPAGE_CONFIG');
 define('FIREPAGE_CONFIG_NAME', '.firepage.json');
 define('FIREPAGE_DEAFULT_ROOT_DIR', __DIR__);
