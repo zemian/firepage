@@ -16,7 +16,8 @@ define('FIREPAGE_VERSION', '1.5.0-SNAPSHOT');
 define('FIREPAGE_CONFIG_ENV_KEY', 'FIREPAGE_CONFIG');
 define('FIREPAGE_CONFIG_NAME', '.firepage.json');
 define('FIREPAGE_DEAFULT_ROOT_DIR', __DIR__);
-define('FIREPAGE_THEME_DIR', __DIR__ . "/themes");
+define('FIREPAGE_THEMES_DIR', __DIR__ . "/themes");
+define('FIREPAGE_PLUGINS_DIR', __DIR__ . "/plugins");
 
 //
 // ### The FirePage Application - Controller, View and PageContext
@@ -54,7 +55,7 @@ class FirePageController {
         $this->default_file_name = $config['default_file_name'] ?? 'home.html';
         $this->default_admin_file_name = $config['default_admin_file_name'] ?? 'admin-home.html';
         $this->file_extension_list = $config['file_extension_list'] ?? ['.html', '.txt'];
-        $this->exclude_file_list = $config['exclude_file_list'] ?? [];
+        $this->exclude_file_list = $config['exclude_file_list'] ?? ['plugins', 'themes', 'admin-home.html'];
         $this->files_to_menu_links = $config['files_to_menu_links'] ?? [];
         $this->pretty_file_to_label = $config['pretty_file_to_label'] ?? false;
 
@@ -85,15 +86,15 @@ class FirePageController {
         $page->parent_url_path = dirname($page->url_path);
         $page->theme_url = $page->parent_url_path . "themes/" . $app->theme;
         if ($app->theme !== null) {
-            $page_admin_file = FIREPAGE_THEME_DIR . "/{$app->theme}/admin-page.php";
+            $page_admin_file = FIREPAGE_THEMES_DIR . "/{$app->theme}/admin-page.php";
             if ($page->is_admin && file_exists($page_admin_file)) {
                 // Process admin page
                 $ret = require_once $page_admin_file;
             } else {
                 $page_ext = pathinfo($page->page_name, PATHINFO_EXTENSION);
-                $page_name_file = FIREPAGE_THEME_DIR . "/{$app->theme}/{$page->page_name}.php";
-                $page_ext_file = FIREPAGE_THEME_DIR . "/{$app->theme}/page-{$page_ext}.php";
-                $page_file = FIREPAGE_THEME_DIR . "/{$app->theme}/page.php";
+                $page_name_file = FIREPAGE_THEMES_DIR . "/{$app->theme}/{$page->page_name}.php";
+                $page_ext_file = FIREPAGE_THEMES_DIR . "/{$app->theme}/page-{$page_ext}.php";
+                $page_file = FIREPAGE_THEMES_DIR . "/{$app->theme}/page.php";
 
                 if (file_exists($page_name_file)) {
                     // Process by page name
@@ -890,25 +891,38 @@ class FirePageUtils {
 //
 // ### Main App Entry
 //
-class FirePage {    
+class FirePage {
+    var ?array $config = [];
+    var ?string $theme = null;
+    var array $plugins = [];
+    
     function read_config($config_file) {
-        if (file_exists($config_file)) {
-            $json = file_get_contents($config_file);
-            $config = json_decode($json, true);
-            if ($config === null) {
-                die("Invalid config JSON file: $config_file");
-            }
-
-            return $config;
+        $json = file_get_contents($config_file);
+        $config = json_decode($json, true);
+        if ($config === null) {
+            die("Invalid config JSON file: $config_file");
         }
-        return array();
+
+        return $config;
     }
 
-    function init_theme($config) {
-        $theme = $config['theme'] ?? null; // theme name
+    function init_plugins() {
+        $this->plugins = $this->config['plugins'] ?? []; // plugins list
+        // Invoke plugins/<plugin_name>/<plugin_name>.php if exists
+        foreach ($this->plugins as $plugin) {
+            $plugin_file = FIREPAGE_PLUGINS_DIR . "/{$plugin}/{$plugin}.php";
+            if (file_exists($plugin_file)) {
+                require_once $plugin_file;
+            }
+        }
+    }
+
+    function init_theme() {
+        $this->theme = $this->config['theme'] ?? null; // theme name
         // Invoke theme/<theme_name>/<theme_name>.php if exists
+        $theme = $this->theme;
         if ($theme !== null) {
-            $theme_file = FIREPAGE_THEME_DIR . "/{$theme}/{$theme}.php";
+            $theme_file = FIREPAGE_THEMES_DIR . "/{$theme}/{$theme}.php";
             if (file_exists($theme_file)) {
                 require_once $theme_file;
             }
@@ -918,11 +932,15 @@ class FirePage {
     function run () {
         // Read in external config file for override
         $config_file = getenv(FIREPAGE_CONFIG_ENV_KEY) ?: (FIREPAGE_DEAFULT_ROOT_DIR . "/" . FIREPAGE_CONFIG_NAME);
-        $config = $this->read_config($config_file);
+        if (file_exists($config_file)) {
+            $this->config = $this->read_config($config_file);
+        }
 
-        $this->init_theme($config);
+        $this->init_plugins();
+        $this->init_theme();
         
         // Instantiate app controller and process the request
+        $config = $this->config;
         $app_controller_class = $config['app_controller_class'] ?? 'FirePageController';
         $app = new $app_controller_class($config);
         $app->init();
