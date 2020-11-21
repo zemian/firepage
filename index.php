@@ -24,26 +24,24 @@ define('FIREPAGE_PLUGINS_DIR', __DIR__ . "/plugins");
 //
 /** The application controller. The entry method is process_request(). */
 class FirePageController {
-    var array $config;
-    var string $root_dir;
-    var string $title;
-    var string $admin_password;
-    var string $root_menu_label;
-    var string $max_menu_levels;
-    var string $default_dir_name;
-    var string $default_file_name;
-    var string $default_admin_file_name;
-    var array $file_extension_list;
-    var array $exclude_file_list;
-    var array $files_to_menu_links;
-    var bool $pretty_file_to_label;
-    var ?array $menu_links;
-    var ?string $theme;
+    protected $config;
+    protected $root_dir;
+    protected $title;
+    protected $admin_password;
+    protected $root_menu_label;
+    protected $max_menu_levels;
+    protected $default_dir_name;
+    protected $default_file_name;
+    protected $default_admin_file_name;
+    protected $file_extension_list;
+    protected $exclude_file_list;
+    protected $files_to_menu_links;
+    protected $pretty_file_to_label;
+    protected $menu_links;
+    protected $theme;
     
     function __construct($config) {
         $this->config = $config;
-
-        $config = $this->config;
 
         // Init config parameters into class properties
         $this->root_dir = ($config['root_dir'] ?? '') ?: FIREPAGE_DEAFULT_ROOT_DIR;
@@ -115,24 +113,11 @@ class FirePageController {
      * Return a View object that can render UI output. It may return NULL if no view is needed (or Theme handle their
      * own output. 
      */
-    function process_request(): ?FirePageView {
+    function process_request() {
         
         // Page properties
-        $page = new class ($this) extends FirePageContext {
-            function __construct(FirePageController $app) {
-                parent::__construct($app);
-                $this->action = $_GET['action'] ?? 'page'; // Default action is to GET page
-                $this->is_admin = isset($_GET['admin']);
-                $this->page_name = $_GET['page'] ?? $app->default_file_name;
-                $this->url_path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
-                $this->controller_url = $this->url_path . '?' . ($this->is_admin ? 'admin=true&' : '');
-                
-                // Set default admin page if exists
-                if ($this->is_admin && !isset($_GET['page']) && $app->exists($app->default_admin_file_name)) {
-                    $this->page_name = $app->default_admin_file_name;
-                }
-            }
-        };
+
+        $page = new FirePageContext($this);
         
         // If this is admin request, and if password is enabled start session
         if ($page->is_admin && $this->is_password_enabled()) {
@@ -503,28 +488,40 @@ class FirePageController {
 
 /** A Page context/map to store any data for View to use. */
 class FirePageContext {
-    var FirePageController $app;
-    var string $action;
-    var string $page_name;
-    var bool $is_admin;
-    var string $url_path;
-    var string $file_content;
-    var string $controller_url;
-    var bool $no_view = false;
-    var ?string $form_error = null;
-    var ?string $delete_status = null;
+    protected $app;
+    protected $action;
+    protected $page_name;
+    protected $is_admin;
+    protected $url_path;
+    protected $file_content;
+    protected $controller_url;
+    protected $no_view = false;
+    protected $form_error = null;
+    protected $delete_status = null;
     
-    function __construct(FirePageController $app) {
+    function __construct($app) {
         $this->app = $app;
+        
+        // Init properties from query params
+        $this->action = $_GET['action'] ?? 'page'; // Default action is to GET page
+        $this->is_admin = isset($_GET['admin']);
+        $this->page_name = $_GET['page'] ?? $app->default_file_name;
+        $this->url_path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+        $this->controller_url = $this->url_path . '?' . ($this->is_admin ? 'admin=true&' : '');
+
+        // Set default admin page if exists
+        if ($this->is_admin && !isset($_GET['page']) && $app->exists($app->default_admin_file_name)) {
+            $this->page_name = $app->default_admin_file_name;
+        }
     }
 }
 
 /** A View class that will render default theme UI. */
 class FirePageView {
-    public FirePageController $app;
-    public FirePageContext $page;
+    protected $app;
+    protected $page;
 
-    function __construct(FirePageController $app, FirePageContext $page) {
+    function __construct($app, $page) {
         $this->app = $app;
         $this->page = $page;
     }
@@ -550,7 +547,6 @@ class FirePageView {
     }
 
     function echo_menu_links($menu_links = null) {
-        $app = $this->app;
         $page = $this->page;
         
         if ($menu_links === null) {
@@ -582,7 +578,6 @@ class FirePageView {
     }
     
     function echo_header_scripts() {
-        $app = $this->app;
         $page = $this->page;
         // Start of view template
         ?>
@@ -892,9 +887,9 @@ class FirePageUtils {
 // ### Main App Entry
 //
 class FirePage {
-    var ?array $config = [];
-    var ?string $theme = null;
-    var array $plugins = [];
+    protected $config = [];
+    protected $theme = null;
+    protected $plugins = [];
     
     function read_config($config_file) {
         $json = file_get_contents($config_file);

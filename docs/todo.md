@@ -1,9 +1,9 @@
-* theme page name nested dir
+* debug why 000webhost not working with firepage
+* handle default page not found
+* handle default admin page not found
+* load theme page name from nested dir
 * theme page return true , not need no_view flag
 * Add docs theme
-* Add plugin
-* Separate out parsedown lib
-* Recreate separate MarkNotes project
 
 ## Todo List
 
