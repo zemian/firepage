@@ -24,21 +24,21 @@ define('FIREPAGE_PLUGINS_DIR', __DIR__ . "/plugins");
 //
 /** The application controller. The entry method is process_request(). */
 class FirePageController {
-    protected $config;
-    protected $root_dir;
-    protected $title;
-    protected $admin_password;
-    protected $root_menu_label;
-    protected $max_menu_levels;
-    protected $default_dir_name;
-    protected $default_file_name;
-    protected $default_admin_file_name;
-    protected $file_extension_list;
-    protected $exclude_file_list;
-    protected $files_to_menu_links;
-    protected $pretty_file_to_label;
-    protected $menu_links;
-    protected $theme;
+    public $config;
+    public $root_dir;
+    public $title;
+    public $admin_password;
+    public $root_menu_label;
+    public $max_menu_levels;
+    public $default_dir_name;
+    public $default_file_name;
+    public $default_admin_file_name;
+    public $file_extension_list;
+    public $exclude_file_list;
+    public $files_to_menu_links;
+    public $pretty_file_to_label;
+    public $menu_links;
+    public $theme;
     
     function __construct($config) {
         $this->config = $config;
@@ -87,7 +87,8 @@ class FirePageController {
             $page_admin_file = FIREPAGE_THEMES_DIR . "/{$app->theme}/admin-page.php";
             if ($page->is_admin && file_exists($page_admin_file)) {
                 // Process admin page
-                $ret = require_once $page_admin_file;
+                require_once $page_admin_file;
+                $ret = true;
             } else {
                 $page_ext = pathinfo($page->page_name, PATHINFO_EXTENSION);
                 $page_name_file = FIREPAGE_THEMES_DIR . "/{$app->theme}/{$page->page_name}.php";
@@ -96,13 +97,16 @@ class FirePageController {
 
                 if (file_exists($page_name_file)) {
                     // Process by page name
-                    $ret = require_once $page_name_file;
+                    require_once $page_name_file;
+                    $ret = true;
                 } else if (file_exists($page_ext_file)) {
                     // Process by page extension
-                    $ret = require_once $page_ext_file;
+                    require_once $page_ext_file;
+                    $ret = true;
                 } else if (file_exists($page_file)) {
                     // Process by explicit 'page.php'
-                    $ret = require_once $page_file;
+                    require_once $page_file;
+                    $ret = true;
                 }
             }
         }
@@ -206,14 +210,14 @@ class FirePageController {
                 }
             }
         }
-        
+
         // Let Theme process request that can modify $page object if needed.
-        $this->process_theme_request($page);
-        if ($page->no_view) {
-            return null;
+        if(!$this->process_theme_request($page)) {
+            return $this->create_view($page);
         }
-        
-        return $this->create_view($page);
+
+        // No view object is returned.
+        return null;
     }
     
     function create_view($page) {
@@ -483,21 +487,20 @@ class FirePageController {
         }
         return $menu_links;
     }
-
 }
 
 /** A Page context/map to store any data for View to use. */
 class FirePageContext {
-    protected $app;
-    protected $action;
-    protected $page_name;
-    protected $is_admin;
-    protected $url_path;
-    protected $file_content;
-    protected $controller_url;
-    protected $no_view = false;
-    protected $form_error = null;
-    protected $delete_status = null;
+    public $app;
+    public $action;
+    public $page_name;
+    public $is_admin;
+    public $url_path;
+    public $file_content;
+    public $controller_url;
+    public $no_view = false;
+    public $form_error = null;
+    public $delete_status = null;
     
     function __construct($app) {
         $this->app = $app;
@@ -518,8 +521,8 @@ class FirePageContext {
 
 /** A View class that will render default theme UI. */
 class FirePageView {
-    protected $app;
-    protected $page;
+    public $app;
+    public $page;
 
     function __construct($app, $page) {
         $this->app = $app;
@@ -887,9 +890,9 @@ class FirePageUtils {
 // ### Main App Entry
 //
 class FirePage {
-    protected $config = [];
-    protected $theme = null;
-    protected $plugins = [];
+    public $config = [];
+    public $theme = null;
+    public $plugins = [];
     
     function read_config($config_file) {
         $json = file_get_contents($config_file);
