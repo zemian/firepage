@@ -40,7 +40,7 @@ Or to try it locally in your system. Install PHP and then run the following:
 By default the web server will serve the project directory for all `*.md` files, and you 
 can click on any file links listed to on menu to view them. Change the browser URL with `index.php?admin` to go into Admin page. In there you can manage all the Markdown files.
 
-## Config Parameters
+## Core Config Parameters
 
 The application supports the following config parameters that you may override using a `.firepage.json` file 
 located where the `index.php` is. Or you may also specified config file using a server ENV variable
@@ -66,7 +66,7 @@ The Json file should contain a Json object. Below are the default values if you 
 }
 ```
 
-### Config Descriptions
+### Core Config Parameter Descriptions
 
 * "root_dir": Directory where to read Markdown files. Empty means relative to where `index.php` is.
 * "title": Use to display the HTML title and Admin logo text.
@@ -81,6 +81,8 @@ The Json file should contain a Json object. Below are the default values if you 
   in the admin interface.
 * "pretty_file_to_label": If set to true, it convert file/dir name to a pretty link label.
 * "app_controller_class": Specify the controller class for the application.
+
+### Optional Config Parameters
 
 Below config parameters will have default values of `NULL` if omitted.
 
@@ -97,6 +99,7 @@ Below config parameters will have default values of `NULL` if omitted.
           { "order": 2, "label" : "Markdown Sample", "page": "sample.md" },
           { "order": 3, "label" : "Release Notes", "page": "release.md" },
           { "order": 4, "label" : "License", "page": "license.md" }
+          { "order": 5, "label" : "Search", "url": "https://www.google.com" }
         ],
         "child_menu_links": []
       }
@@ -124,8 +127,10 @@ to non-empty value and it will prompt for login.
 
 ## Third Party Dependencies
 
+The `index.php` file itself does not include any dependencies. The UI it uses online CDN library for the styling.
+If you need any extra functionalities, you may extend FirePage with `plugins` and `themes`.
 
-### External Dependencies
+### Default External Dependencies
 
 For styling we use [Bulma CSS](https://unpkg.com/bulma). It's access through `unpkg.com` CDN directly.
 
