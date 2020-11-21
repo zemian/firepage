@@ -91,20 +91,26 @@ class FirePageController {
         $page->parent_url_path = dirname($page->url_path);
         $page->theme_url = $page->parent_url_path . "themes/" . $app->theme;
         if ($app->theme !== null) {
-            $page_ext = pathinfo($page->page_name, PATHINFO_EXTENSION);
-            $page_name_file = FIREPAGE_THEME_DIR . "/{$app->theme}/{$page->page_name}.php";
-            $page_ext_file = FIREPAGE_THEME_DIR . "/{$app->theme}/page-{$page_ext}.php";
-            $page_file = FIREPAGE_THEME_DIR . "/{$app->theme}/page.php";
+            $page_admin_file = FIREPAGE_THEME_DIR . "/{$app->theme}/admin-page.php";
+            if ($page->is_admin && file_exists($page_admin_file)) {
+                // Process admin page
+                $ret = require_once $page_admin_file;
+            } else {
+                $page_ext = pathinfo($page->page_name, PATHINFO_EXTENSION);
+                $page_name_file = FIREPAGE_THEME_DIR . "/{$app->theme}/{$page->page_name}.php";
+                $page_ext_file = FIREPAGE_THEME_DIR . "/{$app->theme}/page-{$page_ext}.php";
+                $page_file = FIREPAGE_THEME_DIR . "/{$app->theme}/page.php";
 
-            if (file_exists($page_name_file)) {
-                // Process by page name
-                $ret = require_once $page_name_file;
-            } else if (file_exists($page_ext_file)) {
-                // Process by page extension
-                $ret = require_once $page_ext_file;
-            } else if (file_exists($page_file)) {
-                // Process by explicit 'page.php'
-                $ret = require_once $page_file;
+                if (file_exists($page_name_file)) {
+                    // Process by page name
+                    $ret = require_once $page_name_file;
+                } else if (file_exists($page_ext_file)) {
+                    // Process by page extension
+                    $ret = require_once $page_ext_file;
+                } else if (file_exists($page_file)) {
+                    // Process by explicit 'page.php'
+                    $ret = require_once $page_file;
+                }
             }
         }
         return $ret;
@@ -539,7 +545,7 @@ class FirePageView {
                 // If config has manually given menu_links, return just that.
                 $menu_links = $app->menu_links;
             } else {
-                // Else, auto generate menu_links bsaed on dirs/files listing
+                // Else, auto generate menu_links based on dirs/files listing
                 $menu_links = $app->get_menu_links_tree($this->app->default_dir_name, $this->app->max_menu_levels);
                 $app->remap_menu_links($menu_links);
             }
