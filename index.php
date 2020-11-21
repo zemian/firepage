@@ -53,8 +53,8 @@ class FirePageController {
         $this->default_dir_name = $config['default_dir_name'] ?? '';
         $this->default_file_name = $config['default_file_name'] ?? 'home.html';
         $this->default_admin_file_name = $config['default_admin_file_name'] ?? 'admin-home.html';
-        $this->file_extension_list = $config['file_extension_list'] ?? ['.html', '.txt'];
-        $this->exclude_file_list = $config['exclude_file_list'] ?? ['plugins', 'themes', 'admin-home.html'];
+        $this->file_extension_list = $config['file_extension_list'] ?? [".html", ".txt", ".json"];
+        $this->exclude_file_list = $config['exclude_file_list'] ?? ["plugins", "themes", "admin-home.html"];
         $this->files_to_menu_links = $config['files_to_menu_links'] ?? [];
         $this->pretty_file_to_label = $config['pretty_file_to_label'] ?? false;
         $this->disable_admin = $config['disable_admin'] ?? false;
@@ -220,11 +220,21 @@ class FirePageController {
 
         // Let Theme process request that can modify $page object if needed.
         if(!$this->process_theme_request($page)) {
-            return $this->create_view($page);
+            return $this->process_view($page);
         }
 
         // No view object is returned.
         return null;
+    }
+    
+    function process_view($page) {
+        // Do not provide any view object for .json file
+        if (FirePageUtils::ends_with($page->page_name, '.json')) {
+            header('Content-Type: application/json');
+            echo $page->file_content;
+            return null;
+        }
+        return $this->create_view($page);
     }
     
     function create_view($page) {
@@ -232,15 +242,18 @@ class FirePageController {
     }
 
     function transform_content($file, $content) {
-        if ($content === '') {
-            $content = '<i>This page is empty!</i>';
-        }
-
-        if (!FirePageUtils::ends_with($file, '.html')) {
-            $content = "<pre>" . htmlentities($content) . "</pre>";
+        // Both HTML and .json files, we will will not transform.
+        if (FirePageUtils::ends_with($file, '.html') || FirePageUtils::ends_with($file, '.json')) {
+            return $content;
         }
         
-        return $content;
+        // If it's an empty file, we will show a default empty message
+        if ($content === '') {
+            return '<i>This page is empty!</i>';
+        }
+
+        // All other file types will escape HTML and serve as pre-formatted text
+        return '<pre>' . htmlentities($content) . '</pre>';
     }
 
     function get_file_content($file) {
