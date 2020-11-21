@@ -59,7 +59,7 @@ The Json file should contain a Json object. Below are the default values if you 
     "default_file_name": "home.html",
     "default_admin_file_name": "admin-home.html",
     "file_extension_list": [".html", ".txt"],
-    "exclude_file_list": [],
+    "exclude_file_list": ["plugins", "themes"],
     "pretty_file_to_label": false,
     "app_controller_class": "FirePageController"
 }
