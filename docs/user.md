@@ -1,16 +1,6 @@
-# Welcome to FirePage
+# User Guide
 
 FirePage is a file based CMS application with just one single `index.php` file!
-
-* Project Home: https://github.com/zemian/firepage
-* Project Owner: Zemian Deng
-* License: [The MIT License (MIT)](index.php?page=license.md)
-* Release: [Notes](index.php?page=release.md)
-
-If this is a live site, go to [Admin](index.php?admin) to manage the files!
-(NOTE: This link will not work in GitHub project hosting for obviously reason: they don't support PHP!)
-
-A live demo is available [here](https://zemiancodeplayground.000webhostapp.com/firepage/index.php).
 
 ## Features
 
@@ -82,7 +72,7 @@ The Json file should contain a Json object. Below are the default values if you 
 * "pretty_file_to_label": If set to true, it convert file/dir name to a pretty link label.
 * "app_controller_class": Specify the controller class for the application.
 
-### Optional Config Parameters
+### Advance Config Parameters
 
 Below config parameters will have default values of `NULL` if omitted.
 
