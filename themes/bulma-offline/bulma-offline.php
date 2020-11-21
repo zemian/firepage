@@ -13,7 +13,7 @@ class BulmaOfflineView extends FirePageView {
     public function echo_header_scripts() {
         $page = $this->page;
         ?>
-        <link rel='stylesheet' href='<?php echo $page->theme_url ?>/bulma.min.css'>
+        <link rel='stylesheet' href='<?php echo $page->theme_url ?>/bulma-0.9.1/css/bulma.css'>
         <?php if ($page->is_admin && ($page->action === 'new' || $page->action === 'edit')) { ?>
             <link rel="stylesheet" href="<?php echo $page->theme_url ?>/codemirror-5.58.2/lib/codemirror.css">
             <script src="<?php echo $page->theme_url ?>/codemirror-5.58.2/lib/codemirror.js"></script>
