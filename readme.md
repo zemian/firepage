@@ -1,6 +1,6 @@
 # Welcome to FirePage
 
-FirePage is a single `index.php` page application for managing Markdown files.
+FirePage is a file based CMS application with just one single `index.php` file!
 
 * Project Home: https://github.com/zemian/firepage
 * Project Owner: Zemian Deng
@@ -11,8 +11,6 @@ If this is a live site, go to [Admin](index.php?admin) to manage the files!
 (NOTE: This link will not work in GitHub project hosting for obviously reason: they don't support PHP!)
 
 A live demo is available [here](https://zemiancodeplayground.000webhostapp.com/firepage/index.php).
-
-And some screenshots are available [here](https://zemian.github.io/2020/11/07/firepage/).
 
 ## Features
 
@@ -58,7 +56,8 @@ The Json file should contain a Json object. Below are the default values if you 
     "root_menu_label": "Pages",
     "max_menu_levels": 2,
     "default_dir_name": "",
-    "default_file_name": "index.html",
+    "default_file_name": "home.html",
+    "default_admin_file_name": "admin-home.html",
     "file_extension_list": [".html", ".txt"],
     "exclude_file_list": [],
     "pretty_file_to_label": false,

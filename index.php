@@ -31,6 +31,7 @@ class FirePageController {
     var string $max_menu_levels;
     var string $default_dir_name;
     var string $default_file_name;
+    var string $default_admin_file_name;
     var array $file_extension_list;
     var array $exclude_file_list;
     var array $files_to_menu_links;
@@ -50,7 +51,8 @@ class FirePageController {
         $this->root_menu_label = $config['root_menu_label'] ?? 'Pages';
         $this->max_menu_levels = $config['max_menu_levels'] ?? 2;
         $this->default_dir_name = $config['default_dir_name'] ?? '';
-        $this->default_file_name = $config['default_file_name'] ?? 'index.html';
+        $this->default_file_name = $config['default_file_name'] ?? 'home.html';
+        $this->default_admin_file_name = $config['default_admin_file_name'] ?? 'admin-home.html';
         $this->file_extension_list = $config['file_extension_list'] ?? ['.html', '.txt'];
         $this->exclude_file_list = $config['exclude_file_list'] ?? [];
         $this->files_to_menu_links = $config['files_to_menu_links'] ?? [];
@@ -116,13 +118,20 @@ class FirePageController {
         
         // Page properties
         $page = new class ($this) extends FirePageContext {
-            function __construct($app) {
+            function __construct(FirePageController $app) {
                 parent::__construct($app);
                 $this->action = $_GET['action'] ?? 'page'; // Default action is to GET page
-                $this->page_name = $_GET['page'] ?? $app->default_file_name;
                 $this->is_admin = isset($_GET['admin']);
+                $this->page_name = $_GET['page'] ?? $app->default_file_name;
                 $this->url_path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
                 $this->controller_url = $this->url_path . '?' . ($this->is_admin ? 'admin=true&' : '');
+                
+                // If we are in admin page and no page parameter given, default to give param
+                if ($this->is_admin && !isset($_GET['page'])) {
+                    if ($app->exists($app->default_admin_file_name)) {
+                        $this->page_name = $app->default_admin_file_name;
+                    }
+                }
             }
         };
         
