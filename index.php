@@ -957,4 +957,3 @@ class FirePage {
 // Run it
 $main = new FirePage();
 $main->run();
-?>
