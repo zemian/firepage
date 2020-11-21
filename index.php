@@ -486,10 +486,14 @@ class FirePageController {
         $i = 1;
         foreach ($files as $file) {
             $file_path = ($dir === '') ? $file : "$dir/$file";
+            $url_path = $this->default_dir_name ? "{$this->default_dir_name}/$file_path" : $file_path;
+            $label = $this->pretty_file_to_label($file);
+            
             array_push($menu_links['links'], array(
                 'page' => $file_path,
                 'order' => $i++,
-                'label' => $this->pretty_file_to_label($file)
+                'label' => $label,
+                'url' => $url_path
             ));
         }
 
@@ -570,11 +574,10 @@ class FirePageView {
         $i = 0; // Use to track last item in loop
         $files_len = count($menu_links['links']);
         foreach ($menu_links['links'] as $link) {
-            $file = $link['page'];
             $label = $link['label'];
-            $path_name = $app->default_dir_name ? "{$app->default_dir_name}/$file" : $file;
-            $is_active = ($path_name === $active_file) ? "is-active": "";
-            echo "<li><a class='$is_active' href='{$controller}page=$path_name'>$label</a>";
+            $url = $link['url'];
+            $is_active = ($url === $active_file) ? "is-active": "";
+            echo "<li><a class='$is_active' href='{$controller}page=$url'>$label</a>";
             if ($i++ < ($files_len - 1)) {
                 echo "</li>"; // We close all <li> except last one so Bulma memu list can be nested
             }

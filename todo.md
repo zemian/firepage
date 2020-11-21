@@ -1,3 +1,10 @@
+* theme page name nested dir
+* theme page return true , not need no_view flag
+* Add docs theme
+* Add plugin
+* Separate out parsedown lib
+* Recreate separate MarkNotes project
+
 ## Todo List
 
 * [ ] bug: Errors if 'root_dir' does not exists
