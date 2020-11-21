@@ -94,12 +94,18 @@ class FirePageController {
             } else {
                 $page_ext = pathinfo($page->page_name, PATHINFO_EXTENSION);
                 $page_name_file = FIREPAGE_THEMES_DIR . "/{$app->theme}/{$page->page_name}.php";
+                $page_name_base = pathinfo($page_name_file, PATHINFO_BASENAME);
+                $page_name_base_file = FIREPAGE_THEMES_DIR . "/{$app->theme}/{$page_name_base}.php";
                 $page_ext_file = FIREPAGE_THEMES_DIR . "/{$app->theme}/page-{$page_ext}.php";
                 $page_file = FIREPAGE_THEMES_DIR . "/{$app->theme}/page.php";
 
                 if (file_exists($page_name_file)) {
-                    // Process by page name
+                    // Process by full page name
                     require_once $page_name_file;
+                    $ret = true;
+                } else if (file_exists($page_name_base_file)) {
+                    // Process by base page name
+                    require_once $page_name_base_file;
                     $ret = true;
                 } else if (file_exists($page_ext_file)) {
                     // Process by page extension
