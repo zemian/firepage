@@ -50,8 +50,8 @@ class FirePageController {
         $this->root_menu_label = $config['root_menu_label'] ?? 'Pages';
         $this->max_menu_levels = $config['max_menu_levels'] ?? 2;
         $this->default_dir_name = $config['default_dir_name'] ?? '';
-        $this->default_file_name = $config['default_file_name'] ?? 'readme.md';
-        $this->file_extension_list = $config['file_extension_list'] ?? ['.md'];
+        $this->default_file_name = $config['default_file_name'] ?? 'index.html';
+        $this->file_extension_list = $config['file_extension_list'] ?? ['.html', '.txt'];
         $this->exclude_file_list = $config['exclude_file_list'] ?? [];
         $this->files_to_menu_links = $config['files_to_menu_links'] ?? [];
         $this->pretty_file_to_label = $config['pretty_file_to_label'] ?? false;
@@ -501,10 +501,10 @@ class FirePageContext {
     var bool $is_admin;
     var string $url_path;
     var string $file_content;
-    var ?string $form_error;
-    var ?string $delete_status;
     var string $controller_url;
     var bool $no_view = false;
+    var ?string $form_error = null;
+    var ?string $delete_status = null;
     
     function __construct(FirePageController $app) {
         $this->app = $app;
