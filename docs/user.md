@@ -52,6 +52,7 @@ The Json file should contain a Json object. Below are the default values if you 
 {
     "root_dir": "",
     "title": "FirePage",
+    "disable_admin": false,
     "admin_password": "",
     "root_menu_label": "Pages",
     "max_menu_levels": 2,
@@ -69,6 +70,7 @@ The Json file should contain a Json object. Below are the default values if you 
 
 * "root_dir": Directory where to read Markdown files. Empty means relative to where `index.php` is.
 * "title": Use to display the HTML title and Admin logo text.
+* "disable_admin": Set to true if you do not admin interface at all.
 * "admin_password": Set to non empty to required password to enter into admin area.
 * "root_menu_label": Set a value to be displayed as root menu label.
 * "max_menu_levels": Max number of depth level to list for menu links (sub-folders).
@@ -78,6 +80,7 @@ The Json file should contain a Json object. Below are the default values if you 
 * "exclude_file_list": List of file or directory to exclude relative from `root_dir`. If set, these won't even display
   in the admin interface.
 * "pretty_file_to_label": If set to true, it convert file/dir name to a pretty link label.
+* "app_controller_class": Specify the controller class for the application.
 
 Below config parameters will have default values of `NULL` if omitted.
 

@@ -39,6 +39,7 @@ class FirePageController {
     public $pretty_file_to_label;
     public $menu_links;
     public $theme;
+    public $disable_admin;
     
     function __construct($config) {
         $this->config = $config;
@@ -56,6 +57,7 @@ class FirePageController {
         $this->exclude_file_list = $config['exclude_file_list'] ?? ['plugins', 'themes', 'admin-home.html'];
         $this->files_to_menu_links = $config['files_to_menu_links'] ?? [];
         $this->pretty_file_to_label = $config['pretty_file_to_label'] ?? false;
+        $this->disable_admin = $config['disable_admin'] ?? false;
 
         // Optional config params that defaut to null values if not set
         $this->menu_links = $config['menu_links'] ?? null;
@@ -507,7 +509,7 @@ class FirePageContext {
         
         // Init properties from query params
         $this->action = $_GET['action'] ?? 'page'; // Default action is to GET page
-        $this->is_admin = isset($_GET['admin']);
+        $this->is_admin = (!$app->disable_admin) && isset($_GET['admin']);
         $this->page_name = $_GET['page'] ?? $app->default_file_name;
         $this->url_path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
         $this->controller_url = $this->url_path . '?' . ($this->is_admin ? 'admin=true&' : '');
