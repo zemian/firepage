@@ -124,10 +124,6 @@ to non-empty value and it will prompt for login.
 
 ## Third Party Dependencies
 
-### Embedded in `index.php`
-
-* [parsedown](https://github.com/erusev/parsedown) A PHP parser to render Markdown file.
-* [parsedown-extra](https://github.com/erusev/parsedown-extra) Support Markdown extra features.
 
 ### External Dependencies
 
