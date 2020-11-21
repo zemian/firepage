@@ -12,20 +12,20 @@
 class BulmaOfflineView extends FirePageView {
     public function echo_header_scripts() {
         $page = $this->page;
-        echo "<link rel='stylesheet' href='{$page->theme_url}/bulma.min.css'>";
-        if ($page->is_admin && ($page->action === 'new' || $page->action === 'edit')) {
-            echo <<< EOT
-                <link rel="stylesheet" href="{$page->theme_url}/codemirror-5.58.2/lib/codemirror.css">
-                <script src="{$page->theme_url}/codemirror-5.58.2/lib/codemirror.js"></script>
-                <script src="{$page->theme_url}/codemirror-5.58.2/addon/mode/overlay.js"></script>
-                <script src="{$page->theme_url}/codemirror-5.58.2/mode/javascript/javascript.js"></script>
-                <script src="{$page->theme_url}/codemirror-5.58.2/mode/css/css.js"></script>
-                <script src="{$page->theme_url}/codemirror-5.58.2/mode/xml/xml.js"></script>
-                <script src="{$page->theme_url}/codemirror-5.58.2/mode/htmlmixed/htmlmixed.js"></script>
-                <script src="{$page->theme_url}/codemirror-5.58.2/mode/markdown/markdown.js"></script>
-                <script src="{$page->theme_url}/codemirror-5.58.2/mode/gfm/gfm.js"></script>
-EOT;
-        }
+        ?>
+        <link rel='stylesheet' href='<?php echo $page->theme_url ?>/bulma.min.css'>
+        <?php if ($page->is_admin && ($page->action === 'new' || $page->action === 'edit')) { ?>
+            <link rel="stylesheet" href="<?php echo $page->theme_url ?>/codemirror-5.58.2/lib/codemirror.css">
+            <script src="<?php echo $page->theme_url ?>/codemirror-5.58.2/lib/codemirror.js"></script>
+            <script src="<?php echo $page->theme_url ?>/codemirror-5.58.2/addon/mode/overlay.js"></script>
+            <script src="<?php echo $page->theme_url ?>/codemirror-5.58.2/mode/javascript/javascript.js"></script>
+            <script src="<?php echo $page->theme_url ?>/codemirror-5.58.2/mode/css/css.js"></script>
+            <script src="<?php echo $page->theme_url ?>/codemirror-5.58.2/mode/xml/xml.js"></script>
+            <script src="<?php echo $page->theme_url ?>/codemirror-5.58.2/mode/htmlmixed/htmlmixed.js"></script>
+            <script src="<?php echo $page->theme_url ?>/codemirror-5.58.2/mode/markdown/markdown.js"></script>
+            <script src="<?php echo $page->theme_url ?>/codemirror-5.58.2/mode/gfm/gfm.js"></script>
+        <?php } ?>
+        <?php
     }
 }
 

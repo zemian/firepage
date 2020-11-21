@@ -609,19 +609,17 @@ class FirePageView {
 
     function echo_header() {
         $title = $this->app->title;
-        echo <<< EOT
+        ?>
         <!doctype html>
         <html lang="en">
         <head>
             <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">     
-EOT;
-        $this->echo_header_scripts();
-        echo <<< EOT
-            <title>$title</title>
+            <meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+            <?php $this->echo_header_scripts(); ?>
+            <title><?php echo $title ?></title>
         </head>
         <body>
-EOT;
+        <?php
     }
 
     function echo_navbar_admin() {
