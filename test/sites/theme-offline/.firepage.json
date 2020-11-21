@@ -3,5 +3,5 @@
   "title": "Offline Theme Test",
   "file_extension_list": [".md", ".json"],
   "theme": "bulma-offline",
-  "app_controller_class": "BulmaOfflineController"
+  "controller_class": "BulmaOfflineController"
 }

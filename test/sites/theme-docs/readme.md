@@ -62,7 +62,7 @@ The Json file should contain a Json object. Below are the default values if you 
     "file_extension_list": [".md"],
     "exclude_file_list": [],
     "pretty_file_to_label": false,
-    "app_controller_class": "FirePageController"
+    "controller_class": "FirePageController"
 }
 ```
 

@@ -81,23 +81,23 @@ class FirePageController {
      */
     function process_theme_request(&$page) {
         $ret = false;
-        // This $app variables will be expose to theme.
-        $app = $this;
+        // This $controller variables will be expose to theme.
+        $controller = $this;
         $page->parent_url_path = dirname($page->url_path);
-        $page->theme_url = $page->parent_url_path . "themes/" . $app->theme;
-        if ($app->theme !== null) {
-            $page_admin_file = FIREPAGE_THEMES_DIR . "/{$app->theme}/admin-page.php";
+        $page->theme_url = $page->parent_url_path . "themes/" . $controller->theme;
+        if ($controller->theme !== null) {
+            $page_admin_file = FIREPAGE_THEMES_DIR . "/{$controller->theme}/admin-page.php";
             if ($page->is_admin && file_exists($page_admin_file)) {
                 // Process admin page
                 require_once $page_admin_file;
                 $ret = true;
             } else {
                 $page_ext = pathinfo($page->page_name, PATHINFO_EXTENSION);
-                $page_name_file = FIREPAGE_THEMES_DIR . "/{$app->theme}/{$page->page_name}.php";
+                $page_name_file = FIREPAGE_THEMES_DIR . "/{$controller->theme}/{$page->page_name}.php";
                 $page_name_base = pathinfo($page_name_file, PATHINFO_BASENAME);
-                $page_name_base_file = FIREPAGE_THEMES_DIR . "/{$app->theme}/{$page_name_base}.php";
-                $page_ext_file = FIREPAGE_THEMES_DIR . "/{$app->theme}/page-{$page_ext}.php";
-                $page_file = FIREPAGE_THEMES_DIR . "/{$app->theme}/page.php";
+                $page_name_base_file = FIREPAGE_THEMES_DIR . "/{$controller->theme}/{$page_name_base}.php";
+                $page_ext_file = FIREPAGE_THEMES_DIR . "/{$controller->theme}/page-{$page_ext}.php";
+                $page_file = FIREPAGE_THEMES_DIR . "/{$controller->theme}/page.php";
 
                 if (file_exists($page_name_file)) {
                     // Process by full page name
@@ -128,7 +128,6 @@ class FirePageController {
     function process_request() {
         
         // Page properties
-
         $page = new FirePageContext($this);
         
         // If this is admin request, and if password is enabled start session
@@ -499,7 +498,7 @@ class FirePageController {
 
 /** A Page context/map to store any data for View to use. */
 class FirePageContext {
-    public $app;
+    public $controller;
     public $action;
     public $page_name;
     public $is_admin;
@@ -510,49 +509,49 @@ class FirePageContext {
     public $form_error = null;
     public $delete_status = null;
     
-    function __construct($app) {
-        $this->app = $app;
+    function __construct($controller) {
+        $this->controller = $controller;
         
         // Init properties from query params
         $this->action = $_GET['action'] ?? 'page'; // Default action is to GET page
-        $this->is_admin = (!$app->disable_admin) && isset($_GET['admin']);
-        $this->page_name = $_GET['page'] ?? $app->default_file_name;
+        $this->is_admin = (!$controller->disable_admin) && isset($_GET['admin']);
+        $this->page_name = $_GET['page'] ?? $controller->default_file_name;
         $this->url_path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
         $this->controller_url = $this->url_path . '?' . ($this->is_admin ? 'admin=true&' : '');
 
         // Set default admin page if exists
-        if ($this->is_admin && !isset($_GET['page']) && $app->exists($app->default_admin_file_name)) {
-            $this->page_name = $app->default_admin_file_name;
+        if ($this->is_admin && !isset($_GET['page']) && $controller->exists($controller->default_admin_file_name)) {
+            $this->page_name = $controller->default_admin_file_name;
         }
     }
 }
 
 /** A View class that will render default theme UI. */
 class FirePageView {
-    public $app;
+    public $controller;
     public $page;
 
-    function __construct($app, $page) {
-        $this->app = $app;
+    function __construct($controller, $page) {
+        $this->controller = $controller;
         $this->page = $page;
     }
 
     function get_menu_links() {
-        $app = $this->app;        
+        $controller = $this->controller;        
         $page = $this->page;
         $menu_links = null;
         if ($page->is_admin) {
-            $menu_links = $app->get_menu_links_tree($this->app->default_dir_name, $this->app->max_menu_levels);
+            $menu_links = $controller->get_menu_links_tree($this->controller->default_dir_name, $this->controller->max_menu_levels);
         } else {
-            if ($app->menu_links !== null) {
+            if ($controller->menu_links !== null) {
                 // If config has manually given menu_links, return just that.
-                $menu_links = $app->menu_links;
+                $menu_links = $controller->menu_links;
             } else {
                 // Else, auto generate menu_links based on dirs/files listing
-                $menu_links = $app->get_menu_links_tree($this->app->default_dir_name, $this->app->max_menu_levels);
-                $app->remap_menu_links($menu_links);
+                $menu_links = $controller->get_menu_links_tree($this->controller->default_dir_name, $this->controller->max_menu_levels);
+                $controller->remap_menu_links($menu_links);
             }
-            $app->sort_menu_links($menu_links);
+            $controller->sort_menu_links($menu_links);
         }
         return $menu_links;
     }
@@ -568,14 +567,14 @@ class FirePageView {
         echo "<ul class='menu-list'>";
 
         $active_file = $page->page_name;
-        $controller = $page->controller_url;
+        $controller_url = $page->controller_url;
         $i = 0; // Use to track last item in loop
         $files_len = count($menu_links['links']);
         foreach ($menu_links['links'] as $link) {
             $label = $link['label'];
             $url = $link['url'];
             $is_active = ($url === $active_file) ? "is-active": "";
-            echo "<li><a class='$is_active' href='{$controller}page=$url'>$label</a>";
+            echo "<li><a class='$is_active' href='{$controller_url}page=$url'>$label</a>";
             if ($i++ < ($files_len - 1)) {
                 echo "</li>"; // We close all <li> except last one so Bulma memu list can be nested
             }
@@ -608,7 +607,7 @@ class FirePageView {
     }
 
     function echo_header() {
-        $title = $this->app->title;
+        $title = $this->controller->title;
         ?>
         <!doctype html>
         <html lang="en">
@@ -623,17 +622,17 @@ class FirePageView {
     }
 
     function echo_navbar_admin() {
-        $app = $this->app;
+        $controller = $this->controller;
         $page = $this->page;
         ?>
         <div class="navbar">
             <div class="navbar-brand">
                 <div class="navbar-item">
-                    <a class="title" href='<?php echo $page->controller_url; ?>'><?php echo $app->title; ?></a>
+                    <a class="title" href='<?php echo $page->controller_url; ?>'><?php echo $controller->title; ?></a>
                 </div>
             </div>
             <div class="navbar-end">
-                <?php if ($page->is_admin && $page->action === 'page' && (!$app->is_password_enabled() || $app->is_logged_in())) { ?>
+                <?php if ($page->is_admin && $page->action === 'page' && (!$controller->is_password_enabled() || $controller->is_logged_in())) { ?>
                     <div class="navbar-item">
                         <a href="<?php echo $page->controller_url; ?>action=edit&page=<?= $page->page_name ?>">EDIT</a>
                     </div>
@@ -647,13 +646,13 @@ class FirePageView {
     }
     
     function echo_navbar_site() {
-        $app = $this->app;
+        $controller = $this->controller;
         $page = $this->page;
         ?>
         <div class="navbar">
             <div class="navbar-brand">
                 <div class="navbar-item">
-                    <a class="title" href='<?php echo $page->controller_url; ?>'><?php echo $app->title; ?></a>
+                    <a class="title" href='<?php echo $page->controller_url; ?>'><?php echo $controller->title; ?></a>
                 </div>
             </div>
         </div>
@@ -697,7 +696,7 @@ class FirePageView {
     }
     
     function echo_admin_content() {
-        $app = $this->app;
+        $controller = $this->controller;
         $page = $this->page;
         ?>
         <section class="section">
@@ -707,7 +706,7 @@ class FirePageView {
                     <ul class="menu-list">
                         <li><a href='<?php echo $page->controller_url; ?>action=new'>New</a></li>
 
-                        <?php if ($app->is_logged_in()) { ?>
+                        <?php if ($controller->is_logged_in()) { ?>
                             <li><a href='<?php echo $page->controller_url . "action=logout"; ?>'>Logout</a></li>
                         <?php } else { ?>
                             <li><a href='<?php echo $page->url_path; ?>'>Exit</a></li>
@@ -844,14 +843,14 @@ class FirePageView {
     }
     
     function echo_body_content() {
-        $app = $this->app;
+        $controller = $this->controller;
         $page = $this->page;
         
         // Start of view template
         ?>
         
         <?php $this->echo_navbar(); ?>
-        <?php if ($page->is_admin && ($app->is_password_enabled() && !$app->is_logged_in())) {?>
+        <?php if ($page->is_admin && ($controller->is_password_enabled() && !$controller->is_logged_in())) {?>
             <?php $this->echo_admin_login(); ?>
         <?php } else { /* Not login form. */ ?>
             <?php if ($page->is_admin) { ?>
@@ -867,8 +866,8 @@ class FirePageView {
     function echo_footer() {
         $version = FIREPAGE_VERSION;
         $theme_label = '';
-        if ($this->app->theme !== null) {
-            $theme_label = " with <b>" . $this->app->theme . "</b> theme";
+        if ($this->controller->theme !== null) {
+            $theme_label = " with <b>" . $this->controller->theme . "</b> theme";
         }
         
         ?>
@@ -894,10 +893,11 @@ class FirePageUtils {
         return substr_compare($str, $sub_str, 0, $len) === 0;
     }
 }
+
 //
 // ### Main App Entry
 //
-class FirePage {
+class FirePageApp {
     public $config = [];
     public $theme = null;
     public $plugins = [];
@@ -947,19 +947,19 @@ class FirePage {
         
         // Instantiate app controller and process the request
         $config = $this->config;
-        $app_controller_class = $config['app_controller_class'] ?? 'FirePageController';
-        $app = new $app_controller_class($config);
-        $app->init();
-        $view = $app->process_request();
+        $controller_class = $config['controller_class'] ?? 'FirePageController';
+        $controller = new $controller_class($config);
+        $controller->init();
+        $view = $controller->process_request();
         if ($view !== null) {
             $view->echo_header();
             $view->echo_body_content();
             $view->echo_footer();
         }
-        $app->destroy();
+        $controller->destroy();
     }
 }
 
 // Run it
-$main = new FirePage();
-$main->run();
+$app = new FirePageApp();
+$app->run();

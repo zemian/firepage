@@ -2,5 +2,5 @@
   "root_dir": "test/sites/theme-test-foo",
   "title": "Test Theme - theme-test-foo",
   "theme": "test-foo",
-  "app_controller_class": "TestFooController"
+  "controller_class": "TestFooController"
 }

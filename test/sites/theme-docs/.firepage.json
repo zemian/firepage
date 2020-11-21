@@ -3,7 +3,7 @@
   "title": "FirePage Docs",
   "pretty_file_to_label": true,
   "theme": "docs",
-  "app_controller_class": "DocsController",
+  "controller_class": "DocsController",
 
   "files_to_menu_links": {
     "readme.md" : { "order": 0, "label" : "Home" },

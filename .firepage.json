@@ -3,5 +3,5 @@
   "file_extension_list": [".html", ".txt", ".md"],
   "pretty_file_to_label": true,
   "plugins" : ["markdown"],
-  "app_controller_class": "MarkdownFirePageController"
+  "controller_class": "MarkdownFirePageController"
 }

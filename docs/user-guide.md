@@ -52,7 +52,7 @@ The Json file should contain a Json object. Below are the default values if you 
     "file_extension_list": [".html", ".txt"],
     "exclude_file_list": ["plugins", "themes"],
     "pretty_file_to_label": false,
-    "app_controller_class": "FirePageController"
+    "controller_class": "FirePageController"
 }
 ```
 
@@ -70,7 +70,7 @@ The Json file should contain a Json object. Below are the default values if you 
 * "exclude_file_list": List of file or directory to exclude relative from `root_dir`. If set, these won't even display
   in the admin interface.
 * "pretty_file_to_label": If set to true, it convert file/dir name to a pretty link label.
-* "app_controller_class": Specify the controller class for the application.
+* "controller_class": Specify the controller class for the application.
 
 ### Advance Config Parameters
 
