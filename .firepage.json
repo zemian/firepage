@@ -1,6 +1,7 @@
 {
   "exclude_file_list": ["plugins", "themes", "admin-home.html", "temp", "test"],
   "file_extension_list": [".html", ".txt", ".md"],
+  "pretty_file_to_label": true,
   "plugins" : ["markdown"],
   "app_controller_class": "MarkdownFirePageController"
 }
