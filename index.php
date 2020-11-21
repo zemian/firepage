@@ -623,6 +623,227 @@ EOT;
         <body>
 EOT;
     }
+
+    function echo_navbar_admin() {
+        $app = $this->app;
+        $page = $this->page;
+        ?>
+        <div class="navbar">
+            <div class="navbar-brand">
+                <div class="navbar-item">
+                    <a class="title" href='<?php echo $page->controller_url; ?>'><?php echo $app->title; ?></a>
+                </div>
+            </div>
+            <div class="navbar-end">
+                <?php if ($page->is_admin && $page->action === 'page' && (!$app->is_password_enabled() || $app->is_logged_in())) { ?>
+                    <div class="navbar-item">
+                        <a href="<?php echo $page->controller_url; ?>action=edit&page=<?= $page->page_name ?>">EDIT</a>
+                    </div>
+                    <div class="navbar-item">
+                        <a href="<?php echo $page->controller_url; ?>action=delete&page=<?= $page->page_name ?>">DELETE</a>
+                    </div>
+                <?php } ?>
+            </div>
+        </div>
+        <?php
+    }
+    
+    function echo_navbar_site() {
+        $app = $this->app;
+        $page = $this->page;
+        ?>
+        <div class="navbar">
+            <div class="navbar-brand">
+                <div class="navbar-item">
+                    <a class="title" href='<?php echo $page->controller_url; ?>'><?php echo $app->title; ?></a>
+                </div>
+            </div>
+        </div>
+        <?php
+    }
+    
+    function echo_navbar() {
+        $page = $this->page;        
+        if ($page->is_admin) {
+            $this->echo_navbar_admin();
+        } else {
+            $this->echo_navbar_site();
+        }
+    }
+    
+    function echo_admin_login() {
+        $page = $this->page;
+        ?>
+        <section class="section">
+            <?php if ($page->form_error !== null) { ?>
+                <div class="notification is-danger"><?php echo $page->form_error; ?></div>
+            <?php } ?>
+            <div class="level">
+                <div class="level-item has-text-centered">
+                    <form method="POST" action="<?php echo $page->controller_url; ?>">
+                        <input type="hidden" name="action" value="login_submit">
+                        <div class="field">
+                            <div class="label">Admin Password</div>
+                            <div class="control"><input class="input" type="password" name="password"></div>
+                        </div>
+                        <div class="field">
+                            <div class="control">
+                                <input class="button is-info" type="submit" name="submit" value="Login">
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </section>
+        <?php
+    }
+    
+    function echo_admin_content() {
+        $app = $this->app;
+        $page = $this->page;
+        ?>
+        <section class="section">
+            <div class="columns">
+                <div class="column is-3 menu">
+                    <p class="menu-label">Admin</p>
+                    <ul class="menu-list">
+                        <li><a href='<?php echo $page->controller_url; ?>action=new'>New</a></li>
+
+                        <?php if ($app->is_logged_in()) { ?>
+                            <li><a href='<?php echo $page->controller_url . "action=logout"; ?>'>Logout</a></li>
+                        <?php } else { ?>
+                            <li><a href='<?php echo $page->url_path; ?>'>Exit</a></li>
+                        <?php } ?>
+                    </ul>
+
+                    <?php $this->echo_menu_links(); ?>
+                </div>
+                <div class="column is-9">
+                    <?php if ($page->action === 'new' || $page->action === 'new_submit') { ?>
+                        <?php if ($page->form_error !== null) { ?>
+                            <div class="notification is-danger"><?php echo $page->form_error; ?></div>
+                        <?php } ?>
+                        <form method="POST" action="<?php echo $page->controller_url; ?>">
+                            <input type="hidden" name="action" value="new_submit">
+                            <div class="field">
+                                <div class="label">File Name</div>
+                                <div class="control"><input id='file_name' class="input" type="text" name="page" value="<?php echo $page->page_name ?>"></div>
+                            </div>
+                            <div class="field">
+                                <div class="label">Markdown</div>
+                                <div class="control"><textarea id='file_content' class="textarea" rows="20" name="file_content"><?php echo $page->file_content ?></textarea></div>
+                            </div>
+                            <div class="field">
+                                <div class="control">
+                                    <input class="button is-info" type="submit" name="submit" value="Create">
+                                    <a class="button" href="<?php echo $page->controller_url; ?>">Cancel</a>
+                                </div>
+                            </div>
+                        </form>
+                    <?php } else if ($page->action === 'edit' || $page->action === 'edit_submit') { ?>
+                        <form method="POST" action="<?php echo $page->controller_url; ?>">
+                            <input type="hidden" name="action" value="edit_submit">
+                            <div class="field">
+                                <div class="label">File Name</div>
+                                <div class="control"><input id='file_name' class="input" type="text" name="page" value="<?= $page->page_name ?>"></div>
+                            </div>
+                            <div class="field">
+                                <div class="label">Markdown</div>
+                                <div class="control"><textarea id='file_content' class="textarea" rows="20" name="file_content"><?= $page->file_content ?></textarea></div>
+                            </div>
+                            <div class="field">
+                                <div class="control">
+                                    <input class="button is-info" type="submit" name="submit" value="Update">
+                                    <a class="button" href="<?php echo $page->controller_url; ?>page=<?= $page->page_name ?>">Cancel</a>
+                                </div>
+                            </div>
+                        </form>
+                    <?php } else if ($page->action === 'delete') { ?>
+                        <div class="message is-danger">
+                            <div class="message-header">Delete Confirmation</div>
+                            <div class="message-body">
+                                <p class="block">Are you sure you want to delete <b><?= $page->page_name ?></b>?</p>
+
+                                <a class="button is-info" href="<?php echo $page->controller_url; ?>action=delete-confirmed&page=<?= $page->page_name ?>">Delete</a>
+                                <a class="button" href="<?php echo $page->controller_url; ?>page=<?= $page->page_name ?>">Cancel</a>
+                            </div>
+                        </div>
+                    <?php } else if ($page->action === 'delete-confirmed') { ?>
+                        <div class="message is-success">
+                            <div class="message-header">Deleted!</div>
+                            <div class="message-body">
+                                <p class="block"><?php echo $page->delete_status; ?></p>
+                            </div>
+                        </div>
+                    <?php } else if ($page->action === 'page') { ?>
+                        <div class="content">
+                            <?php echo $page->file_content; ?>
+                        </div>
+                    <?php } else { ?>
+                        <div class="message is-warning">
+                            <div class="message-header">Oops!</div>
+                            <div class="message-body">
+                                <p class="block">We can not process this action: <?php echo $page->action ; ?></p>
+                            </div>
+                        </div>
+                    <?php } ?>
+                </div>
+            </div>
+        </section>
+
+        <?php if ($page->action === 'new' || $page->action === 'edit') { ?>
+            <script>
+                function getCodeMirrorMode(fileName) {
+                    var mode = fileName.split('.').pop();
+                    if (mode === 'md') {
+                        // ext = 'markdown';
+                        mode = 'gfm'; // Use GitHub Flavor Markdown
+                    } else if (mode === 'json') {
+                        mode = {name: 'javascript', json: true};
+                    } else if (mode === 'html') {
+                        mode = 'htmlmixed';
+                    }
+                    return mode;
+                }
+
+                // Load CodeMirror with Markdown (GitHub Flavor Markdown) syntax highlight
+                var fileNameEl = document.getElementById('file_name');
+                var editor = CodeMirror.fromTextArea(document.getElementById('file_content'), {
+                    lineNumbers: true,
+                    mode: getCodeMirrorMode(fileNameEl.value),
+                    theme: 'default',
+                });
+                editor.setSize(null, '500');
+
+                // Listen to FileName focus change then trigger editor mode change
+                fileNameEl.addEventListener('focusout', (event) => {
+                    var name = event.target.value;
+                    var mode = getCodeMirrorMode(name);
+                    editor.setOption('mode', mode);
+                });
+            </script>
+        <?php } /* End of new/edit form for <script> tag */?>
+        
+        <?php
+    }
+    
+    function echo_page_content() {
+        $page = $this->page;
+        ?>
+        <section class="section">
+            <div class="columns">
+                <div class="column is-3 menu">
+                    <?php $this->echo_menu_links(); ?>
+                </div>
+                <div class="column is-9">
+                    <div class="content">
+                        <?php echo $page->file_content; ?>
+                    </div>
+                </div>
+            </div>
+        </section>
+        <?php
+    }
     
     function echo_body_content() {
         $app = $this->app;
@@ -631,183 +852,14 @@ EOT;
         // Start of view template
         ?>
         
-        <?php if ($page->is_admin) { ?>
-            <div class="navbar">
-                <div class="navbar-brand">
-                    <div class="navbar-item">
-                        <a class="title" href='<?php echo $page->controller_url; ?>'><?php echo $app->title; ?></a>
-                    </div>
-                </div>
-                <div class="navbar-end">
-                    <?php if ($page->is_admin && $page->action === 'page' && (!$app->is_password_enabled() || $app->is_logged_in())) { ?>
-                    <div class="navbar-item">
-                        <a href="<?php echo $page->controller_url; ?>action=edit&page=<?= $page->page_name ?>">EDIT</a>
-                    </div>
-                    <div class="navbar-item">
-                        <a href="<?php echo $page->controller_url; ?>action=delete&page=<?= $page->page_name ?>">DELETE</a>
-                    </div>
-                    <?php } ?>
-                </div>
-            </div>
-        <?php } ?>
-        
+        <?php $this->echo_navbar(); ?>
         <?php if ($page->is_admin && ($app->is_password_enabled() && !$app->is_logged_in())) {?>
-            <section class="section">
-                <?php if ($page->form_error !== null) { ?>
-                <div class="notification is-danger"><?php echo $page->form_error; ?></div>
-                <?php } ?>
-                <div class="level">
-                    <div class="level-item has-text-centered">
-                        <form method="POST" action="<?php echo $page->controller_url; ?>">
-                            <input type="hidden" name="action" value="login_submit">
-                            <div class="field">
-                                <div class="label">Admin Password</div>
-                                <div class="control"><input class="input" type="password" name="password"></div>
-                            </div>
-                            <div class="field">
-                                <div class="control">
-                                    <input class="button is-info" type="submit" name="submit" value="Login">
-                                </div>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            </section>
+            <?php $this->echo_admin_login(); ?>
         <?php } else { /* Not login form. */ ?>
             <?php if ($page->is_admin) { ?>
-                <section class="section">
-                    <div class="columns">
-                        <div class="column is-3 menu">
-                            <p class="menu-label">Admin</p>
-                            <ul class="menu-list">
-                                <li><a href='<?php echo $page->controller_url; ?>action=new'>New</a></li>
-                
-                                <?php if ($app->is_logged_in()) { ?>
-                                    <li><a href='<?php echo $page->controller_url . "action=logout"; ?>'>Logout</a></li>
-                                <?php } else { ?>
-                                    <li><a href='<?php echo $page->url_path; ?>'>Exit</a></li>
-                                <?php } ?>
-                            </ul>
-                
-                            <?php $this->echo_menu_links(); ?>
-                        </div>
-                        <div class="column is-9">
-                            <?php if ($page->action === 'new' || $page->action === 'new_submit') { ?>
-                                <?php if ($page->form_error !== null) { ?>
-                                    <div class="notification is-danger"><?php echo $page->form_error; ?></div>
-                                <?php } ?>
-                                <form method="POST" action="<?php echo $page->controller_url; ?>">
-                                    <input type="hidden" name="action" value="new_submit">
-                                    <div class="field">
-                                        <div class="label">File Name</div>
-                                        <div class="control"><input id='file_name' class="input" type="text" name="page" value="<?php echo $page->page_name ?>"></div>
-                                    </div>
-                                    <div class="field">
-                                        <div class="label">Markdown</div>
-                                        <div class="control"><textarea id='file_content' class="textarea" rows="20" name="file_content"><?php echo $page->file_content ?></textarea></div>
-                                    </div>
-                                    <div class="field">
-                                        <div class="control">
-                                            <input class="button is-info" type="submit" name="submit" value="Create">
-                                            <a class="button" href="<?php echo $page->controller_url; ?>">Cancel</a>
-                                        </div>
-                                    </div>
-                                </form>
-                            <?php } else if ($page->action === 'edit' || $page->action === 'edit_submit') { ?>
-                                <form method="POST" action="<?php echo $page->controller_url; ?>">
-                                    <input type="hidden" name="action" value="edit_submit">
-                                    <div class="field">
-                                        <div class="label">File Name</div>
-                                        <div class="control"><input id='file_name' class="input" type="text" name="page" value="<?= $page->page_name ?>"></div>
-                                    </div>
-                                    <div class="field">
-                                        <div class="label">Markdown</div>
-                                        <div class="control"><textarea id='file_content' class="textarea" rows="20" name="file_content"><?= $page->file_content ?></textarea></div>
-                                    </div>
-                                    <div class="field">
-                                        <div class="control">
-                                            <input class="button is-info" type="submit" name="submit" value="Update">
-                                            <a class="button" href="<?php echo $page->controller_url; ?>page=<?= $page->page_name ?>">Cancel</a>
-                                        </div>
-                                    </div>
-                                </form>
-                            <?php } else if ($page->action === 'delete') { ?>
-                                <div class="message is-danger">
-                                    <div class="message-header">Delete Confirmation</div>
-                                    <div class="message-body">
-                                        <p class="block">Are you sure you want to delete <b><?= $page->page_name ?></b>?</p>
-                
-                                        <a class="button is-info" href="<?php echo $page->controller_url; ?>action=delete-confirmed&page=<?= $page->page_name ?>">Delete</a>
-                                        <a class="button" href="<?php echo $page->controller_url; ?>page=<?= $page->page_name ?>">Cancel</a>
-                                    </div>
-                                </div>
-                            <?php } else if ($page->action === 'delete-confirmed') { ?>
-                                <div class="message is-success">
-                                    <div class="message-header">Deleted!</div>
-                                    <div class="message-body">
-                                        <p class="block"><?php echo $page->delete_status; ?></p>
-                                    </div>
-                                </div>
-                            <?php } else if ($page->action === 'page') { ?>
-                                <div class="content">
-                                    <?php echo $page->file_content; ?>
-                                </div>
-                            <?php } else { ?>
-                                <div class="message is-warning">
-                                    <div class="message-header">Oops!</div>
-                                    <div class="message-body">
-                                        <p class="block">We can not process this action: <?php echo $page->action ; ?></p>
-                                    </div>
-                                </div>
-                            <?php } ?>
-                        </div>
-                    </div>
-                </section>
-                <?php if ($page->action === 'new' || $page->action === 'edit') { ?>
-                    <script>
-                        function getCodeMirrorMode(fileName) {
-                            var mode = fileName.split('.').pop();
-                            if (mode === 'md') {
-                                // ext = 'markdown';
-                                mode = 'gfm'; // Use GitHub Flavor Markdown
-                            } else if (mode === 'json') {
-                                mode = {name: 'javascript', json: true};
-                            } else if (mode === 'html') {
-                                mode = 'htmlmixed';
-                            }
-                            return mode;
-                        }
-                        
-                        // Load CodeMirror with Markdown (GitHub Flavor Markdown) syntax highlight
-                        var fileNameEl = document.getElementById('file_name');
-                        var editor = CodeMirror.fromTextArea(document.getElementById('file_content'), {
-                            lineNumbers: true,
-                            mode: getCodeMirrorMode(fileNameEl.value),
-                            theme: 'default',
-                        });
-                        editor.setSize(null, '500');
-                        
-                        // Listen to FileName focus change then trigger editor mode change
-                        fileNameEl.addEventListener('focusout', (event) => {
-                            var name = event.target.value;
-                            var mode = getCodeMirrorMode(name);
-                            editor.setOption('mode', mode);
-                        });
-                    </script>
-                <?php } /* End of new/edit form for <script> tag */?>
+                <?php $this->echo_admin_content(); ?>
             <?php } else { /* Not admin page */?>
-                <section class="section">
-                    <div class="columns">
-                        <div class="column is-3 menu">
-                            <?php $this->echo_menu_links(); ?>
-                        </div>
-                        <div class="column is-9">
-                            <div class="content">
-                                <?php echo $page->file_content; ?>
-                            </div>
-                        </div>
-                    </div>
-                </section>
+                <?php $this->echo_page_content(); ?>
             <?php } /* End of Not admin page */ ?>
         <?php } /* End of Not login form. */ ?>
 
@@ -820,14 +872,16 @@ EOT;
         if ($this->app->theme !== null) {
             $theme_label = " with <b>" . $this->app->theme . "</b> theme";
         }
-        echo <<< EOT
-<div class="footer">
-    <p>Powered by <a href="https://github.com/zemian/firepage">FirePage $version</a>$theme_label</p>
-</div>
-
-</body>
-</html>
-EOT;
+        
+        ?>
+        <div class="footer">
+            <p>Powered by <a href="https://github.com/zemian/firepage">FirePage <?php echo $version ?></a>
+                <?php echo $theme_label ?></p>
+        </div>
+        
+        </body>
+        </html>
+        <?php
     }
 }
 
