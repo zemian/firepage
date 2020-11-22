@@ -522,7 +522,22 @@ class FirePageController {
         return new FirePageView($this, $page);
     }
 
-    function transform_content($file, $content) {        
+    function transform_content($file, $content) {
+        $plugins_result = $this->call_plugins_filter('transform_content', $file, $content);
+        if ($plugins_result !== null) {
+            $plugin_content = $plugins_result[0];
+            // If plugin returns null, then run transform_default_content, else use what plugin returned.
+            if ($plugin_content === null) {
+                $content = $this->transform_default_content($file, $content);
+            } else {
+                $content = $plugin_content;
+            }
+        }
+        
+        return $content;
+    }
+    
+    function transform_default_content($file, $content) {
         // Both HTML and .json files, we will will not transform.
         if (FirePageUtils::ends_with($file, '.html') || FirePageUtils::ends_with($file, '.json')) {
             // Do nothing
