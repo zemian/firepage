@@ -17,26 +17,15 @@ class plaintextPlugin {
     public function init($controller) {
         $this->controller = $controller;
     }
-    
-    public function transform_content($file, $content) {
-        if (FirePageUtils::ends_with($file, '.txt')) {
-            // Do not transform .txt file
-            return $content;
-        }
-        
-        // Reuse default implementation
-        return $this->controller->transform_content($file, $content);
-    }
 
-    function process_view($page) {
-        // Do not provide any view object for .json file
+    // We will override process_request() as filter chain
+    function process_request($page) {
         if (FirePageUtils::ends_with($page->page_name, '.txt')) {
             header('Content-Type: text/plain');
-            echo $page->file_content;
+            echo $this->controller->get_file_content($page->page_name);
             return null;
         }
-
-        // Reuse default implementation
-        return $this->controller->create_view($page);
+        // Ensure next plugin or the default controller will continue
+        return $page;
     }
 }

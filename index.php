@@ -64,56 +64,108 @@ class FirePageController {
     }
 
     /**
-     * Returns array of call result for each method called. Each array item contains these values. 
-     * [0] = bool true if method is called. [2] = result of the call. [3] = method type: "plugin" or "theme"
+     * Invoke action methods defined in plugins/theme. Action methods are methods that gets invoke in plugins
+     * regardless of the result. All plugins on same method will be called.
+     * 
+     * Example of methods are "init" and "destroy".
+     * 
+     * Returns null if no plugins actions has been invoked. Else it will return an array of call result 
+     * for each method that got called. Each array item is the result of the call.
      */
-    function call_plugins_method($method, ...$args) {
+    function call_plugins_action($method, ...$args) {
         $ret = array();
         if ($this->app->plugins !== null) {
             foreach ($this->app->plugins as $plugin) {
                 $call_ret = FirePageUtils::call_if_exists($plugin, $method, $args);
                 if ($call_ret[0]) {
-                    array_push($ret, [$call_ret[0], $call_ret[1], 'plugin']);
+                    array_push($ret, $call_ret[1]);
                 }
             }
         }
         if ($this->app->theme !== null) {
             $call_ret = FirePageUtils::call_if_exists($this->app->theme, $method, $args);
             if ($call_ret[0]) {
-                array_push($ret, [$call_ret[0], $call_ret[1], 'theme']);
+                array_push($ret, $call_ret[1]);
             }
         }
         return count($ret) > 0 ? $ret : null;
     }
     
-    function call_plugins_method_reverse($method, ...$args) {
+    /** Same as call_plugins_action() but will call methods on theme then reverse order of plugins initialized. */
+    function call_plugins_action_reverse($method, ...$args) {
         $ret = array();
         if ($this->app->theme !== null) {
             $call_ret = FirePageUtils::call_if_exists($this->app->theme, $method, $args);
             if ($call_ret[0]) {
-                array_push($ret, [$call_ret[0], $call_ret[1], 'theme']);
+                array_push($ret, $call_ret[1]);
             }
         }
         if ($this->app->plugins !== null) {
             foreach (array_reverse($this->app->plugins) as $plugin) {
                 $call_ret = FirePageUtils::call_if_exists($plugin, $method, $args);
                 if ($call_ret[0]) {
-                    array_push($ret, [$call_ret[0], $call_ret[1], 'plugin']);
+                    array_push($ret, $call_ret[1]);
                 }
             }
         }
         return count($ret) > 0 ? $ret : null;
     }
+
+    /**
+     * Invoke filter methods defined in plugins/theme. Filter methods are one that will call as pipe line
+     * filter chain on all plugins/theme. If one plugin returns NULL, then rest of plugins will stop processing.
+     * 
+     * Example of filter method: "process_request".
+     *
+     * Returns null if no plugins actions has been invoked. Else it will return an array with one element
+     * and that's last chained plugin filter method returned value.
+     */
+    function call_plugins_filter($method, ...$args) {
+        $filter_called = false;
+        if ($this->app->plugins !== null) {
+            foreach ($this->app->plugins as $plugin) {
+                $call_ret = FirePageUtils::call_if_exists($plugin, $method, $args);
+                if ($call_ret[0]) {
+                    $filter_called = true;
+                    $args = $call_ret[1];
+                    if ($args === null) {
+                        return [null];
+                    }
+                }
+            }
+        }
+        
+        if ($this->app->theme !== null) {
+            $call_ret = FirePageUtils::call_if_exists($this->app->theme, $method, $args);
+            if ($call_ret[0]) {
+                $filter_called = true;
+                $args = $call_ret[1];
+                if ($args === null) {
+                    return [null];
+                }
+            }
+        }
+        
+        if (!$filter_called) {
+            return null; // Return early if no filter has been called.
+        }
+
+        if ($args !== null) {
+            // Returns the final result from the last plugin/theme filter
+            return [$args];
+        }
+        
+        // Return NULL here means there is no methods got invoked by plugins
+        return null;
+    }
     
     function init() {
-        $this->call_plugins_method('init', $this);
+        $this->call_plugins_action('init', $this);
     }
     
     function destroy() {
-        $this->call_plugins_method_reverse('destroy'); // call in reverse order
+        $this->call_plugins_action_reverse('destroy'); // call in reverse order
     }
-
-
 
     function get_files($sub_path = '') {
         $ret = [];
@@ -214,7 +266,7 @@ class FirePageController {
     }
 
     function remap_menu_links(&$menu_link) {
-        if ($this->call_plugins_method('remap_menu_links', $menu_link)) {
+        if ($this->call_plugins_action('remap_menu_links', $menu_link)) {
             return;
         }
         if (count($this->files_to_menu_links) === 0) {
@@ -283,17 +335,28 @@ class FirePageController {
     }
 
     /** 
-     * Return a View object that can render UI output. It may return NULL if no view is needed (or Theme handle their
-     * own output. 
+     * Return a View object that can render UI output. It may return NULL if no view is needed (like an plugin
+     * has taken care of their own output.)
      */
     function process_request() {
-        if ($this->call_plugins_method('process_request') !== null) {
-            return;
-        }
-        
         // Page properties
         $page = new FirePageContext($this);
+
+        // Let plugin process request first, and if there is any result from it, return immediately
+        $plugins_result = $this->call_plugins_filter('process_request', $page);
+        if ($plugins_result !== null) {
+            $page = $plugins_result[0];
+        }
         
+        if ($page === null) {
+            return null; // This mean the plugin has taken care of view and output.
+        }
+        
+        // Here means let's continue process request by our controller.
+        return $this->process_default_request($page);
+    }
+    
+    function process_default_request($page) {
         // If this is admin request, and if password is enabled start session
         if ($page->is_admin && $this->is_password_enabled()) {
             if (!session_start()) {
@@ -370,12 +433,14 @@ class FirePageController {
                     $this->logout();
                     $this->redirect($page->controller_url);
                 } else if ($action === 'page') {
-                    $page->file_content = $this->get_file_content($page->page_name);
+                    $content = $this->get_file_content($page->page_name);
+                    $page->file_content = $this->transform_content($page->page_name, $content);
                 }
             } else {
                 // GET - Not Admin Actions
                 if ($action === 'page'){
-                    $page->file_content = $this->get_file_content($page->page_name);
+                    $content = $this->get_file_content($page->page_name);
+                    $page->file_content = $this->transform_content($page->page_name, $content);
                 } else {
                     die("Unknown action=$action");
                 }
@@ -400,10 +465,6 @@ class FirePageController {
      * NOTE: The $page argument is passed by ref and it's modifiable.
      */
     function process_theme_request(&$page) {
-        if ($this->call_plugins_method('process_theme_request', $page) !== null) {
-            return;
-        }
-
         $theme = $this->app->theme;
         if ($theme === null) {
             return false;
@@ -447,11 +508,7 @@ class FirePageController {
         return $processed_by_theme;
     }
     
-    function process_view($page) {
-        if ($this->call_plugins_method('process_view', $page) !== null) {
-            return;
-        }
-        
+    function process_view($page) {        
         // Do not provide any view object for .json file
         if (FirePageUtils::ends_with($page->page_name, '.json')) {
             header('Content-Type: application/json');
@@ -462,47 +519,37 @@ class FirePageController {
     }
     
     function create_view($page) {
-        if ($this->call_plugins_method('create_view', $page) !== null) {
-            return;
-        }
         return new FirePageView($this, $page);
     }
 
-    function transform_content($file, $content) {
-        if ($this->call_plugins_method('transform_content', $file, $content) !== null) {
-            return;
-        }
+    function transform_content($file, $content) {        
         // Both HTML and .json files, we will will not transform.
         if (FirePageUtils::ends_with($file, '.html') || FirePageUtils::ends_with($file, '.json')) {
-            return $content;
-        }
-        
-        // If it's an empty file, we will show a default empty message
-        if ($content === '') {
-            return '<i>This page is empty!</i>';
+            // Do nothing
+        } else {
+            // If it's an empty file, we will show a default empty message
+            if ($content === '') {
+                $content = '<i>This page is empty!</i>';
+            }
+
+            // All other file types will escape HTML and serve as pre-formatted text
+            $content = '<pre>' . htmlentities($content) . '</pre>';
         }
 
-        // All other file types will escape HTML and serve as pre-formatted text
-        return '<pre>' . htmlentities($content) . '</pre>';
+        return $content;
     }
 
     function get_file_content($file) {
-        if ($this->call_plugins_method('get_file_content', $file) !== null) {
-            return;
-        }
         if($this->exists($file) &&
             $this->validate_note_name($file, false) === null) {
             $content = $this->read($file);
-            return $this->transform_content($file, $content);
+            return $content;
         } else {
             return "File not found: $file";
         }
     }
 
     function is_file_excluded($dir_file) {
-        if ($this->call_plugins_method('is_file_excluded', $dir_file) !== null) {
-            return;
-        }
         if (count($this->exclude_file_list) > 0) {
             foreach($this->exclude_file_list as $exclude) {
                 // Exclude in relative to the root_dir
@@ -515,9 +562,6 @@ class FirePageController {
     }
 
     function login($password, $admin_password) {
-        if ($this->call_plugins_method('login', $password, $admin_password) !== null) {
-            return;
-        }
         $n = strlen($password);
         if (!($n > 0 && $n < 20) || $password !== $admin_password) {
             return "Invalid Password";
@@ -528,16 +572,10 @@ class FirePageController {
     }
 
     function logout() {
-        if ($this->call_plugins_method('logout') !== null) {
-            return;
-        }
         unset($_SESSION['login']);
     }
 
     function validate_note_name($name, $is_exists_check) {
-        if ($this->call_plugins_method('validate_note_name', $name, $is_exists_check) !== null) {
-            return;
-        }
         $ext_list = $this->file_extension_list;
         $max_depth = $this->max_menu_levels;
         $error = 'Invalid name: ';
@@ -564,9 +602,6 @@ class FirePageController {
     }
 
     function validate_note_content($content) {
-        if ($this->call_plugins_method('validate_note_content', $content) !== null) {
-            return;
-        }
         $error = 'Invalid note content: ';
         $n = strlen($content);
         $size = 1024 * 1024 * 10;
@@ -579,9 +614,6 @@ class FirePageController {
     }
 
     function pretty_file_to_label($file) {
-        if ($this->call_plugins_method('pretty_file_to_label', $file) !== null) {
-            return;
-        }
         if (!$this->pretty_file_to_label) {
             return $file;
         }
@@ -994,9 +1026,9 @@ class FirePageUtils {
     }
     
     /** Return array of two: [0] called flag, [1] called result */
-    static function call_if_exists($obj, $method, ...$args) {
-        if (isset($obj->$method)) {
-            $ret = call_user_func_array($obj->$method, $args);
+    static function call_if_exists($obj, $method, $args) {
+        if (method_exists($obj, $method)) {
+            $ret = call_user_func_array(array($obj, $method), $args);
             return [true, $ret];
         }
         return [false, null];
