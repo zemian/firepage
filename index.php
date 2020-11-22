@@ -24,7 +24,7 @@ define('FIREPAGE_PLUGINS_DIR', __DIR__ . "/plugins");
 //
 /** The application controller. The entry method is process_request(). */
 class FirePageController {
-    public $config;
+    public $app; // FirePageApp
     public $root_dir;
     public $title;
     public $admin_password;
@@ -38,13 +38,13 @@ class FirePageController {
     public $files_to_menu_links;
     public $pretty_file_to_label;
     public $menu_links;
-    public $theme;
     public $disable_admin;
     
-    function __construct($config) {
-        $this->config = $config;
+    function __construct($app) {
+        $this->app = $app;
 
         // Init config parameters into class properties
+        $config = $this->app->config;
         $this->root_dir = ($config['root_dir'] ?? '') ?: FIREPAGE_DEAFULT_ROOT_DIR;
         $this->title = $config['title'] ?? 'FirePage';
         $this->admin_password = $config['admin_password'] ?? '';
@@ -59,66 +59,227 @@ class FirePageController {
         $this->pretty_file_to_label = $config['pretty_file_to_label'] ?? false;
         $this->disable_admin = $config['disable_admin'] ?? false;
 
-        // Optional config params that defaut to null values if not set
+        // Optional config params that default to null values if not set
         $this->menu_links = $config['menu_links'] ?? null;
-        $this->theme = $config['theme'] ?? null;
-    }
-    
-    function init() {
-        // Do nothing for now.
-    }
-    
-    function destroy() {
-        // Do nothing for now.
     }
 
     /**
-     * It looks for script named <page_name>.php, or page-<page_ext>.php in theme to process request. If the script
-     * exist, it should return page object for view to render, else returns null response has already been
-     * processed. (no view needed).
-     * 
-     * NOTE: The $page argument is passed by ref and it's modifiable.
+     * Returns array of call result for each method called. Each array item contains these values. 
+     * [0] = bool true if method is called. [2] = result of the call. [3] = method type: "plugin" or "theme"
      */
-    function process_theme_request(&$page) {
-        $ret = false;
-        // This $controller variables will be expose to theme.
-        $controller = $this;
-        $page->parent_url_path = dirname($page->url_path);
-        $page->theme_url = $page->parent_url_path . "themes/" . $controller->theme;
-        if ($controller->theme !== null) {
-            $page_admin_file = FIREPAGE_THEMES_DIR . "/{$controller->theme}/admin-page.php";
-            if ($page->is_admin && file_exists($page_admin_file)) {
-                // Process admin page
-                require_once $page_admin_file;
-                $ret = true;
-            } else {
-                $page_ext = pathinfo($page->page_name, PATHINFO_EXTENSION);
-                $page_name_file = FIREPAGE_THEMES_DIR . "/{$controller->theme}/{$page->page_name}.php";
-                $page_name_base = pathinfo($page_name_file, PATHINFO_BASENAME);
-                $page_name_base_file = FIREPAGE_THEMES_DIR . "/{$controller->theme}/{$page_name_base}.php";
-                $page_ext_file = FIREPAGE_THEMES_DIR . "/{$controller->theme}/page-{$page_ext}.php";
-                $page_file = FIREPAGE_THEMES_DIR . "/{$controller->theme}/page.php";
+    function call_plugins_method($method, ...$args) {
+        $ret = array();
+        if ($this->app->plugins !== null) {
+            foreach ($this->app->plugins as $plugin) {
+                $call_ret = FirePageUtils::call_if_exists($plugin, $method, $args);
+                if ($call_ret[0]) {
+                    array_push($ret, [$call_ret[0], $call_ret[1], 'plugin']);
+                }
+            }
+        }
+        if ($this->app->theme !== null) {
+            $call_ret = FirePageUtils::call_if_exists($this->app->theme, $method, $args);
+            if ($call_ret[0]) {
+                array_push($ret, [$call_ret[0], $call_ret[1], 'theme']);
+            }
+        }
+        return count($ret) > 0 ? $ret : null;
+    }
+    
+    function call_plugins_method_reverse($method, ...$args) {
+        $ret = array();
+        if ($this->app->theme !== null) {
+            $call_ret = FirePageUtils::call_if_exists($this->app->theme, $method, $args);
+            if ($call_ret[0]) {
+                array_push($ret, [$call_ret[0], $call_ret[1], 'theme']);
+            }
+        }
+        if ($this->app->plugins !== null) {
+            foreach (array_reverse($this->app->plugins) as $plugin) {
+                $call_ret = FirePageUtils::call_if_exists($plugin, $method, $args);
+                if ($call_ret[0]) {
+                    array_push($ret, [$call_ret[0], $call_ret[1], 'plugin']);
+                }
+            }
+        }
+        return count($ret) > 0 ? $ret : null;
+    }
+    
+    function init() {
+        $this->call_plugins_method('init', $this);
+    }
+    
+    function destroy() {
+        $this->call_plugins_method_reverse('destroy'); // call in reverse order
+    }
 
-                if (file_exists($page_name_file)) {
-                    // Process by full page name
-                    require_once $page_name_file;
-                    $ret = true;
-                } else if (file_exists($page_name_base_file)) {
-                    // Process by base page name
-                    require_once $page_name_base_file;
-                    $ret = true;
-                } else if (file_exists($page_ext_file)) {
-                    // Process by page extension
-                    require_once $page_ext_file;
-                    $ret = true;
-                } else if (file_exists($page_file)) {
-                    // Process by explicit 'page.php'
-                    require_once $page_file;
-                    $ret = true;
+
+
+    function get_files($sub_path = '') {
+        $ret = [];
+        $dir = $this->root_dir . ($sub_path ? "/$sub_path" : '');
+        $files = array_slice(scandir($dir), 2);
+        foreach ($files as $file) {
+            $dir_file = "$dir/$file";
+            if (is_file($dir_file) && $file !== FIREPAGE_CONFIG_NAME) {
+                if ($this->is_file_excluded($dir_file)) {
+                    continue;
+                }
+                foreach ($this->file_extension_list as $ext) {
+                    if (!FirePageUtils::starts_with($file, '.') && FirePageUtils::ends_with($file, $ext)) {
+                        array_push($ret, $file);
+                        break;
+                    }
                 }
             }
         }
         return $ret;
+    }
+
+    function get_dirs($sub_path = '') {
+        $ret = [];
+        $dir = $this->root_dir . ($sub_path ? "/$sub_path" : '');
+        $files = array_slice(scandir($dir), 2);
+        foreach ($files as $file) {
+            $dir_file = "$dir/$file";
+            if (is_dir($dir_file)) {
+                // Do not include hidden dot folders or from exclusion list
+                if (!FirePageUtils::starts_with($file, '.') && !$this->is_file_excluded($dir_file)) {
+                    array_push($ret, $file);
+                }
+            }
+        }
+        return $ret;
+    }
+
+    function exists($file) {
+        return file_exists($this->root_dir . "/" . $file);
+    }
+
+    function read($file) {
+        return file_get_contents($this->root_dir . "/" . $file);
+    }
+
+    function write($file, $contents) {
+        $file_path = $this->root_dir . "/" . $file;
+        $dir_path = pathinfo($file_path, PATHINFO_DIRNAME);
+        if (!is_dir($dir_path)) {
+            mkdir($dir_path, 0777, true);
+        }
+        return file_put_contents($file_path, $contents);
+    }
+
+    function delete($file) {
+        return $this->exists($file) && unlink($this->root_dir . "/" . $file);
+    }
+
+    /** This method will EXIT! */
+    function redirect($path) {
+        header("Location: $path");
+        exit();
+    }
+
+    function get_admin_session() {
+        return $_SESSION['login'] ?? null;
+    }
+
+    function is_password_enabled() {
+        return $this->admin_password !== '';
+    }
+
+    function is_logged_in() {
+        return $this->get_admin_session() !== null;
+    }
+
+
+    // We need to accept array reference so we can modify array in-place!
+    function sort_menu_links(&$menu_links) {
+        usort($menu_links['links'], function ($a, $b) {
+            $ret = $a['order'] <=> $b['order'];
+            if ($ret === 0) {
+                $ret = $a['label'] <=> $b['label'];
+            }
+            return $ret;
+        });
+        usort($menu_links['child_menu_links'], function ($a, $b) {
+            $ret = $a['menu_order'] <=> $b['menu_order'];
+            if ($ret === 0) {
+                $ret = $a['menu_label'] <=> $b['menu_label'];
+            }
+            return $ret;
+        });
+        foreach ($menu_links['child_menu_links'] as $menu_link) {
+            $this->sort_menu_links($menu_link);
+        }
+    }
+
+    function remap_menu_links(&$menu_link) {
+        if ($this->call_plugins_method('remap_menu_links', $menu_link)) {
+            return;
+        }
+        if (count($this->files_to_menu_links) === 0) {
+            return;
+        }
+        $map = $this->files_to_menu_links;
+        foreach ($menu_link['links'] as $idx => &$link) {
+            $file = $link['page'];
+            if (array_key_exists($file, $map)) {
+                $new_link = $map[$file];
+                if (isset($new_link['hide'])) {
+                    unset($menu_link['links'][$idx]);
+                } else {
+                    $link = array_merge($link, $map[$file]);
+                }
+            }
+        }
+
+        foreach ($menu_link['child_menu_links'] as $idx => &$child_menu_links_item) {
+            $menu_dir = $child_menu_links_item['menu_dir'];
+            if (array_key_exists($menu_dir, $map) && isset($map[$menu_dir]['hide'])) {
+                unset($menu_link['child_menu_links'][$idx]);
+            } else {
+                $this->remap_menu_links($child_menu_links_item);
+            }
+        }
+    }
+
+    function get_menu_links_tree($dir, $max_level, $menu_order = 1) {
+        $menu_links = array(
+            "menu_label" => null,
+            "menu_name" => null,
+            "menu_order" => $menu_order,
+            "menu_dir" => $dir,
+            "links" => [],
+            "child_menu_links" => []
+        );
+        $dir_name = ($dir === '') ? $this->root_menu_label : pathinfo($dir, PATHINFO_FILENAME);
+        $menu_links['menu_label'] = $this->pretty_file_to_label($dir_name);
+        $menu_links['menu_name'] = $dir;
+
+        $files = $this->get_files($dir);
+        $i = 1;
+        foreach ($files as $file) {
+            $file_path = ($dir === '') ? $file : "$dir/$file";
+            $url_path = $this->default_dir_name ? "{$this->default_dir_name}/$file_path" : $file_path;
+            $label = $this->pretty_file_to_label($file);
+
+            array_push($menu_links['links'], array(
+                'page' => $file_path,
+                'order' => $i++,
+                'label' => $label,
+                'url' => $url_path
+            ));
+        }
+
+        if ($max_level > 0) {
+            $sub_dirs = $this->get_dirs($dir);
+            foreach ($sub_dirs as $sub_dir) {
+                $dir_path = ($dir === '') ? $sub_dir : "$dir/$sub_dir";
+                $sub_tree = $this->get_menu_links_tree($dir_path, $max_level - 1, $menu_order + 1);
+                array_push($menu_links['child_menu_links'], $sub_tree);
+            }
+        }
+        return $menu_links;
     }
 
     /** 
@@ -126,6 +287,9 @@ class FirePageController {
      * own output. 
      */
     function process_request() {
+        if ($this->call_plugins_method('process_request') !== null) {
+            return;
+        }
         
         // Page properties
         $page = new FirePageContext($this);
@@ -226,8 +390,68 @@ class FirePageController {
         // No view object is returned.
         return null;
     }
+
+    /**
+     * It looks for script named <page_name>.php, or page-<page_ext>.php in theme to process request. If the script
+     * exist, it should return page object for view to render, else returns null response has already been
+     * processed. (no view needed). The theme page .php script will have access to "$controller" and
+     * "$page" global variables.
+     *
+     * NOTE: The $page argument is passed by ref and it's modifiable.
+     */
+    function process_theme_request(&$page) {
+        if ($this->call_plugins_method('process_theme_request', $page) !== null) {
+            return;
+        }
+
+        $theme = $this->app->theme;
+        if ($theme === null) {
+            return false;
+        }
+
+        $processed_by_theme = false;
+        $page->parent_url_path = dirname($page->url_path);
+        $page->theme_url = $page->parent_url_path . "themes/" . $theme;
+        $controller = $this; // This $controller variables will be expose to theme.
+        $page_admin_file = FIREPAGE_THEMES_DIR . "/{$theme}/admin-page.php";
+        if ($page->is_admin && file_exists($page_admin_file)) {
+            // Process admin page
+            require_once $page_admin_file;
+            $processed_by_theme = true;
+        } else {
+            $page_ext = pathinfo($page->page_name, PATHINFO_EXTENSION);
+            $page_name_file = FIREPAGE_THEMES_DIR . "/{$theme}/{$page->page_name}.php";
+            $page_name_base = pathinfo($page_name_file, PATHINFO_BASENAME);
+            $page_name_base_file = FIREPAGE_THEMES_DIR . "/{$theme}/{$page_name_base}.php";
+            $page_ext_file = FIREPAGE_THEMES_DIR . "/{$theme}/page-{$page_ext}.php";
+            $page_file = FIREPAGE_THEMES_DIR . "/{$theme}/page.php";
+
+            if (file_exists($page_name_file)) {
+                // Process by full page name
+                require_once $page_name_file;
+                $processed_by_theme = true;
+            } else if (file_exists($page_name_base_file)) {
+                // Process by base page name
+                require_once $page_name_base_file;
+                $processed_by_theme = true;
+            } else if (file_exists($page_ext_file)) {
+                // Process by page extension
+                require_once $page_ext_file;
+                $processed_by_theme = true;
+            } else if (file_exists($page_file)) {
+                // Process by explicit 'page.php'
+                require_once $page_file;
+                $processed_by_theme = true;
+            }
+        }
+        return $processed_by_theme;
+    }
     
     function process_view($page) {
+        if ($this->call_plugins_method('process_view', $page) !== null) {
+            return;
+        }
+        
         // Do not provide any view object for .json file
         if (FirePageUtils::ends_with($page->page_name, '.json')) {
             header('Content-Type: application/json');
@@ -238,10 +462,16 @@ class FirePageController {
     }
     
     function create_view($page) {
+        if ($this->call_plugins_method('create_view', $page) !== null) {
+            return;
+        }
         return new FirePageView($this, $page);
     }
 
     function transform_content($file, $content) {
+        if ($this->call_plugins_method('transform_content', $file, $content) !== null) {
+            return;
+        }
         // Both HTML and .json files, we will will not transform.
         if (FirePageUtils::ends_with($file, '.html') || FirePageUtils::ends_with($file, '.json')) {
             return $content;
@@ -257,6 +487,9 @@ class FirePageController {
     }
 
     function get_file_content($file) {
+        if ($this->call_plugins_method('get_file_content', $file) !== null) {
+            return;
+        }
         if($this->exists($file) &&
             $this->validate_note_name($file, false) === null) {
             $content = $this->read($file);
@@ -267,6 +500,9 @@ class FirePageController {
     }
 
     function is_file_excluded($dir_file) {
+        if ($this->call_plugins_method('is_file_excluded', $dir_file) !== null) {
+            return;
+        }
         if (count($this->exclude_file_list) > 0) {
             foreach($this->exclude_file_list as $exclude) {
                 // Exclude in relative to the root_dir
@@ -278,75 +514,10 @@ class FirePageController {
         return false;
     }
 
-    function get_files($sub_path = '') {
-        $ret = [];
-        $dir = $this->root_dir . ($sub_path ? "/$sub_path" : '');
-        $files = array_slice(scandir($dir), 2);
-        foreach ($files as $file) {
-            $dir_file = "$dir/$file";
-            if (is_file($dir_file) && $file !== FIREPAGE_CONFIG_NAME) {
-                if ($this->is_file_excluded($dir_file)) {
-                    continue;
-                }
-                foreach ($this->file_extension_list as $ext) {
-                    if (!FirePageUtils::starts_with($file, '.') && FirePageUtils::ends_with($file, $ext)) {
-                        array_push($ret, $file);
-                        break;
-                    }
-                }
-            }
-        }
-        return $ret;
-    }
-
-    function get_dirs($sub_path = '') {
-        $ret = [];
-        $dir = $this->root_dir . ($sub_path ? "/$sub_path" : '');
-        $files = array_slice(scandir($dir), 2);
-        foreach ($files as $file) {
-            $dir_file = "$dir/$file";
-            if (is_dir($dir_file)) {
-                // Do not include hidden dot folders or from exclusion list
-                if (!FirePageUtils::starts_with($file, '.') && !$this->is_file_excluded($dir_file)) {
-                    array_push($ret, $file);
-                }
-            }
-        }
-        return $ret;
-    }
-
-    function exists($file) {
-        return file_exists($this->root_dir . "/" . $file);
-    }
-
-    function read($file) {
-        return file_get_contents($this->root_dir . "/" . $file);
-    }
-
-    function write($file, $contents) {
-        $file_path = $this->root_dir . "/" . $file;
-        $dir_path = pathinfo($file_path, PATHINFO_DIRNAME);
-        if (!is_dir($dir_path)) {
-            mkdir($dir_path, 0777, true);
-        }
-        return file_put_contents($file_path, $contents);
-    }
-
-    function delete($file) {
-        return $this->exists($file) && unlink($this->root_dir . "/" . $file);
-    }
-
-    /** This method will EXIT! */
-    function redirect($path) {
-        header("Location: $path");
-        exit();
-    }
-
-    function get_admin_session() {
-        return $_SESSION['login'] ?? null;
-    }
-
     function login($password, $admin_password) {
+        if ($this->call_plugins_method('login', $password, $admin_password) !== null) {
+            return;
+        }
         $n = strlen($password);
         if (!($n > 0 && $n < 20) || $password !== $admin_password) {
             return "Invalid Password";
@@ -357,18 +528,16 @@ class FirePageController {
     }
 
     function logout() {
+        if ($this->call_plugins_method('logout') !== null) {
+            return;
+        }
         unset($_SESSION['login']);
     }
 
-    function is_password_enabled() {
-        return $this->admin_password !== '';
-    }
-
-    function is_logged_in() {
-        return $this->get_admin_session() !== null;
-    }
-
     function validate_note_name($name, $is_exists_check) {
+        if ($this->call_plugins_method('validate_note_name', $name, $is_exists_check) !== null) {
+            return;
+        }
         $ext_list = $this->file_extension_list;
         $max_depth = $this->max_menu_levels;
         $error = 'Invalid name: ';
@@ -395,6 +564,9 @@ class FirePageController {
     }
 
     function validate_note_content($content) {
+        if ($this->call_plugins_method('validate_note_content', $content) !== null) {
+            return;
+        }
         $error = 'Invalid note content: ';
         $n = strlen($content);
         $size = 1024 * 1024 * 10;
@@ -406,55 +578,10 @@ class FirePageController {
         return $error;
     }
 
-    // We need to accept array reference so we can modify array in-place!
-    function sort_menu_links(&$menu_links) {
-        usort($menu_links['links'], function ($a, $b) {
-            $ret = $a['order'] <=> $b['order'];
-            if ($ret === 0) {
-                $ret = $a['label'] <=> $b['label'];
-            }
-            return $ret;
-        });
-        usort($menu_links['child_menu_links'], function ($a, $b) {
-            $ret = $a['menu_order'] <=> $b['menu_order'];
-            if ($ret === 0) {
-                $ret = $a['menu_label'] <=> $b['menu_label'];
-            }
-            return $ret;
-        });
-        foreach ($menu_links['child_menu_links'] as $menu_link) {
-            $this->sort_menu_links($menu_link);
-        }
-    }
-
-    function remap_menu_links(&$menu_link) {
-        if (count($this->files_to_menu_links) === 0) {
+    function pretty_file_to_label($file) {
+        if ($this->call_plugins_method('pretty_file_to_label', $file) !== null) {
             return;
         }
-        $map = $this->files_to_menu_links;
-        foreach ($menu_link['links'] as $idx => &$link) {
-            $file = $link['page'];
-            if (array_key_exists($file, $map)) {
-                $new_link = $map[$file];
-                if (isset($new_link['hide'])) {
-                    unset($menu_link['links'][$idx]);
-                } else {
-                    $link = array_merge($link, $map[$file]);
-                }
-            }
-        }
-
-        foreach ($menu_link['child_menu_links'] as $idx => &$child_menu_links_item) {
-            $menu_dir = $child_menu_links_item['menu_dir'];
-            if (array_key_exists($menu_dir, $map) && isset($map[$menu_dir]['hide'])) {
-                unset($menu_link['child_menu_links'][$idx]);
-            } else {
-                $this->remap_menu_links($child_menu_links_item);
-            }
-        }
-    }
-
-    function pretty_file_to_label($file) {
         if (!$this->pretty_file_to_label) {
             return $file;
         }
@@ -468,63 +595,20 @@ class FirePageController {
         $label = ucfirst($label);
         return $label;
     }
-
-    function get_menu_links_tree($dir, $max_level, $menu_order = 1) {
-        $menu_links = array(
-            "menu_label" => null,
-            "menu_name" => null,
-            "menu_order" => $menu_order,
-            "menu_dir" => $dir,
-            "links" => [],
-            "child_menu_links" => []
-        );
-        $dir_name = ($dir === '') ? $this->root_menu_label : pathinfo($dir, PATHINFO_FILENAME);
-        $menu_links['menu_label'] = $this->pretty_file_to_label($dir_name);
-        $menu_links['menu_name'] = $dir;
-
-        $files = $this->get_files($dir);
-        $i = 1;
-        foreach ($files as $file) {
-            $file_path = ($dir === '') ? $file : "$dir/$file";
-            $url_path = $this->default_dir_name ? "{$this->default_dir_name}/$file_path" : $file_path;
-            $label = $this->pretty_file_to_label($file);
-            
-            array_push($menu_links['links'], array(
-                'page' => $file_path,
-                'order' => $i++,
-                'label' => $label,
-                'url' => $url_path
-            ));
-        }
-
-        if ($max_level > 0) {
-            $sub_dirs = $this->get_dirs($dir);
-            foreach ($sub_dirs as $sub_dir) {
-                $dir_path = ($dir === '') ? $sub_dir : "$dir/$sub_dir";
-                $sub_tree = $this->get_menu_links_tree($dir_path, $max_level - 1, $menu_order + 1);
-                array_push($menu_links['child_menu_links'], $sub_tree);
-            }
-        }
-        return $menu_links;
-    }
 }
 
 /** A Page context/map to store any data for View to use. */
 class FirePageContext {
-    public $controller;
     public $action;
     public $page_name;
     public $is_admin;
     public $url_path;
     public $file_content;
     public $controller_url;
-    public $no_view = false;
     public $form_error = null;
     public $delete_status = null;
     
-    function __construct($controller) {
-        $this->controller = $controller;
-        
+    function __construct($controller) {        
         // Init properties from query params
         $this->action = $_GET['action'] ?? 'page'; // Default action is to GET page
         $this->is_admin = (!$controller->disable_admin) && isset($_GET['admin']);
@@ -539,7 +623,10 @@ class FirePageContext {
     }
 }
 
-/** A View class that will render default theme UI. */
+/** 
+ * A View class that will render default theme UI. It must contains these methods: echo_header, echo_body_content
+ * and echo_footer. 
+ */
 class FirePageView {
     public $controller;
     public $page;
@@ -879,8 +966,8 @@ class FirePageView {
     function echo_footer() {
         $version = FIREPAGE_VERSION;
         $theme_label = '';
-        if ($this->controller->theme !== null) {
-            $theme_label = " with <b>" . $this->controller->theme . "</b> theme";
+        if ($this->controller->app->theme !== null) {
+            $theme_label = " with <b>" . $this->controller->app->theme . "</b> theme";
         }
         
         ?>
@@ -905,6 +992,15 @@ class FirePageUtils {
         $len = strlen($sub_str);
         return substr_compare($str, $sub_str, 0, $len) === 0;
     }
+    
+    /** Return array of two: [0] called flag, [1] called result */
+    static function call_if_exists($obj, $method, ...$args) {
+        if (isset($obj->$method)) {
+            $ret = call_user_func_array($obj->$method, $args);
+            return [true, $ret];
+        }
+        return [false, null];
+    }
 }
 
 //
@@ -912,8 +1008,10 @@ class FirePageUtils {
 //
 class FirePageApp {
     public $config = [];
-    public $theme = null;
-    public $plugins = [];
+    public $theme_name = null;
+    public $theme = null; // theme instance
+    public $plugin_names = null;
+    public $plugins = null; // plugin instances
     
     function read_config($config_file) {
         $json = file_get_contents($config_file);
@@ -925,25 +1023,37 @@ class FirePageApp {
         return $config;
     }
 
-    function init_plugins() {
-        $this->plugins = $this->config['plugins'] ?? []; // plugins list
-        // Invoke plugins/<plugin_name>/<plugin_name>.php if exists
-        foreach ($this->plugins as $plugin) {
-            $plugin_file = FIREPAGE_PLUGINS_DIR . "/{$plugin}/{$plugin}.php";
-            if (file_exists($plugin_file)) {
-                require_once $plugin_file;
+    function create_plugins() {
+        $this->plugin_names = $this->config['plugins'] ?? null; // plugins list
+        if ($this->plugin_names !== null) {
+            $this->plugins = array();
+            // Invoke plugins/<plugin_name>/<plugin_name>.php if exists
+            foreach ($this->plugin_names as $plugin) {
+                $plugin_file = FIREPAGE_PLUGINS_DIR . "/{$plugin}/{$plugin}.php";
+                if (file_exists($plugin_file)) {
+                    require_once $plugin_file;
+                    $plugin_class_name = "{$plugin}Plugin";
+                    if (class_exists($plugin_class_name)) {
+                        $plugin_obj = new $plugin_class_name();
+                        array_push($this->plugins, $plugin_obj);
+                    }
+                }
             }
         }
     }
 
-    function init_theme() {
-        $this->theme = $this->config['theme'] ?? null; // theme name
+    function create_theme() {
+        $this->theme_name = $this->config['theme'] ?? null; // theme name
         // Invoke theme/<theme_name>/<theme_name>.php if exists
-        $theme = $this->theme;
-        if ($theme !== null) {
-            $theme_file = FIREPAGE_THEMES_DIR . "/{$theme}/{$theme}.php";
+        if ($this->theme_name !== null) {
+            $theme_name = $this->theme_name;
+            $theme_file = FIREPAGE_THEMES_DIR . "/{$theme_name}/{$theme_name}.php";
             if (file_exists($theme_file)) {
                 require_once $theme_file;
+                $theme_class_name = "{$theme_name}Theme";
+                if (class_exists($theme_class_name)) {
+                    $this->theme = new $theme_class_name();
+                }
             }
         }
     }
@@ -955,13 +1065,12 @@ class FirePageApp {
             $this->config = $this->read_config($config_file);
         }
 
-        $this->init_plugins();
-        $this->init_theme();
+        $this->create_plugins();
+        $this->create_theme();
         
         // Instantiate app controller and process the request
-        $config = $this->config;
-        $controller_class = $config['controller_class'] ?? 'FirePageController';
-        $controller = new $controller_class($config);
+        $controller_class = $this->config['controller_class'] ?? 'FirePageController';
+        $controller = new $controller_class($this);
         $controller->init();
         $view = $controller->process_request();
         if ($view !== null) {
