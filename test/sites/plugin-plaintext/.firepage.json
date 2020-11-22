@@ -1,0 +1,4 @@
+{
+  "root_dir": "test/sites/plugin-plaintext",
+  "plugins": ["plaintext"]
+}

@@ -1,0 +1,1 @@
+This file should be serve as "text/plain" as the Content-Type in response header.
