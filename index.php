@@ -108,7 +108,7 @@ class FirePageConfig {
     public array $file_extension_list = [".html", ".txt", ".json"];
     public array $exclude_file_list = ["plugins", "themes", "admin-home.html"];
     public ?array $files_to_menu_links = null; // a Map of page_name to FPLink for override
-    public bool $pretty_file_to_label = false;
+    public bool $pretty_file_to_label = true;
     public ?FPMenuLinks $menu_links = null;
     public bool $disable_admin = false;
     public ?string $theme = null;

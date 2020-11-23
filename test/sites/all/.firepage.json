@@ -2,11 +2,12 @@
   "root_dir": "test/sites/all",
   "title": "TestSite",
   "admin_password": "test123",
-  "root_menu_label": "TESTSite",
+  "root_menu_label": "MIXED",
   "max_menu_levels": 5,
   "default_dir_name": "",
   "default_file_name": "hello.html",
-  "file_extension_list": [".md", ".html", ".json", ".txt"],
-  "exclude_file_list": ["exclude-me-test", "do-not-use-me.json"],
-  "pretty_file_to_label": true
+  "plugins": ["markdown"],
+  "file_extension_list": [".html", ".txt", ".json", ".md"],
+  "exclude_file_list": ["plugins", "themes", "admin-home.html", "exclude-me-test", "do-not-use-me.json"],
+  "pretty_file_to_label": false
 }
