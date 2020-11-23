@@ -100,7 +100,7 @@ class FirePageConfig {
     public string $view_class = 'FirePageView';
     public string $title = 'FirePage';
     public ?string $admin_password = null;
-    public string $root_menu_label = 'Pages';
+    public string $root_menu_label = 'Site';
     public int $max_menu_levels = 2;
     public string $default_dir_name = '';
     public string $default_file_name = 'home.html';
@@ -129,8 +129,7 @@ class FirePageConfig {
 /** The FirePage application manager - life starts here with run().  */
 class FirePageApp {
     public FirePageConfig $config;
-    public ?IFPlugin $theme = null;
-    public array $plugins = []; // array of FPPlugin
+    public array $plugins; // array of FPPlugin
     public FirePageController $controller;
 
     /** Read external .firepage.json config file if it exists. */
@@ -197,10 +196,9 @@ class FirePageApp {
      * Returns null if no plugins actions has been invoked. Else it will return an array of call result
      * for each method that got called. Each array item is the result of the call.
      */
-    function call_plugins_action($method, ...$args) {
-        $plugins = $this->get_combined_plugins(false);
+    function call_plugins_action($method, ...$args) {        
         $ret = array();
-        foreach ($plugins as $plugin) {
+        foreach ($this->plugins as $plugin) {
             $call_ret = FirePageUtils::call_if_exists($plugin, $method, $args);
             if ($call_ret[0]) {
                 array_push($ret, $call_ret[1]);
@@ -208,65 +206,119 @@ class FirePageApp {
         }
         return count($ret) > 0 ? $ret : null;
     }
-    
-    function get_combined_plugins($include_controller = true) {
-        $combined_plugins = [];
-        if ($include_controller) {
-            array_push($combined_plugins, $this->controller);
-        }
-        $combined_plugins = array_merge($combined_plugins, $this->plugins);
-        if ($this->theme !== null) {
-            array_push($combined_plugins, $this->theme);
-        }
-        return $combined_plugins;
-    }
 
+    /**
+     * It looks for script named <page_name>.php, or page-<page_ext>.php in theme to process request.
+     * If a script is found and called, it will return null so next request filter will not process View object.
+     * Else if no script is found or called, then the original $view is returned back.
+     *
+     * The theme page .php script will have access to "$app" and "$page" global variables.
+     *
+     * NOTE: The $page argument is passed by ref and it's modifiable.
+     */
+    function process_theme_request(FirePageContext &$page, FPView $view): ?FPView {
+        $theme = $this->config->theme;
+        if ($theme === null) {
+            return $view;
+        }
+
+        $app = $this; // Expose $app variable to theme
+        $processed_by_theme = false;
+        $page->parent_url_path = dirname($page->url_path);
+        $page->theme_url = $page->parent_url_path . "themes/" . $theme;
+        $page_admin_file = FIREPAGE_THEMES_DIR . "/{$theme}/admin-page.php";
+        if ($page->is_admin && file_exists($page_admin_file)) {
+            // Process admin page
+            require_once $page_admin_file;
+            $processed_by_theme = true;
+        } else {
+            $page_ext = pathinfo($page->page_name, PATHINFO_EXTENSION);
+            $page_name_file = FIREPAGE_THEMES_DIR . "/{$theme}/{$page->page_name}.php";
+            $page_name_base = pathinfo($page_name_file, PATHINFO_BASENAME);
+            $page_name_base_file = FIREPAGE_THEMES_DIR . "/{$theme}/{$page_name_base}.php";
+            $page_ext_file = FIREPAGE_THEMES_DIR . "/{$theme}/page-{$page_ext}.php";
+            $page_file = FIREPAGE_THEMES_DIR . "/{$theme}/page.php";
+
+            if (file_exists($page_name_file)) {
+                // Process by full page name
+                require_once $page_name_file;
+                $processed_by_theme = true;
+            } else if (file_exists($page_name_base_file)) {
+                // Process by base page name
+                require_once $page_name_base_file;
+                $processed_by_theme = true;
+            } else if (file_exists($page_ext_file)) {
+                // Process by page extension
+                require_once $page_ext_file;
+                $processed_by_theme = true;
+            } else if (file_exists($page_file)) {
+                // Process by explicit 'page.php'
+                require_once $page_file;
+                $processed_by_theme = true;
+            }
+        }
+
+        if ($processed_by_theme) {
+            return null;
+        }
+
+        return $view;
+    }
+    
     /** Main entry of app - read config, load plugins, theme and then process requests. */
     function run(): void {
         // Init config
         $config_file = getenv(FIREPAGE_CONFIG_ENV_KEY) ?: (FIREPAGE_DEAFULT_ROOT_DIR . "/" . FIREPAGE_CONFIG_NAME);
         $this->config = new FirePageConfig($this->read_config($config_file));
+
+        // Load plugins and theme
+        $this->plugins = $this->create_plugins();
+        $theme = $this->create_theme();
+        if ($theme !== null) {
+            array_push($this->plugins, $theme);
+        }
         
         // Create default FP controller
         $controllerClass = $this->config->controller_class;
         $this->controller = new $controllerClass($this);
-        
-        // Load plugins and theme
-        $this->plugins = $this->create_plugins();
-        $this->theme = $this->create_theme();
-        
-        
+                
         // Init all plugins
-        $combined_plugins = $this->get_combined_plugins();
-        foreach ($combined_plugins as $plugin) {
+        foreach ($this->plugins as $plugin) {
             $plugin->init();
         }
+        $this->controller->init();
 
-        // Process request using plugins chains
+        // Process request using chained plugins - until first NULL view is returned
         $page = new FirePageContext($this);
         $viewClass = $this->config->view_class;
         $view = new $viewClass($this);
-        foreach ($combined_plugins as $plugin) {
+        foreach ($this->plugins as $plugin) {
             $view = $plugin->process_request($page, $view);
             if ($view === null) {
                 break;
             }
         }
-        
-        // Allow theme to process page if possible
+
+        // Process request by main controller - if view is not NULL
         if ($view !== null) {
-            $view = $this->controller->process_theme_request($page, $view);
+            $view = $this->controller->process_request($page, $view);
+        }
+
+        // Process request by theme - custom page look
+        if ($view !== null) {
+            $view = $this->process_theme_request($page, $view);
         }
         
-        // If View instance is still non-null, call the render()        
+        // If View instance is still not NULL, call the render()        
         if ($view !== null) {
             $view->render($page);
         }
                 
         // Done process request - destroy all plugins in reverse order
-        foreach (array_reverse($combined_plugins) as $plugin) {
+        foreach (array_reverse($this->plugins) as $plugin) {
             $plugin->destroy();
         }
+        $this->controller->destroy();
     }
 }
 
@@ -388,8 +440,8 @@ class FirePageController extends FirePagePlugin {
             $file = $link->page;
             if (array_key_exists($file, $map)) {
                 $new_link = $map[$file];
-                if ($new_link->hide) {
-                    unset($menu_link->links[$idx]);
+                if (isset($new_link['hide'])) {
+                    unset($menu_link['links'][$idx]);
                 } else {
                     $link = array_merge($link, $map[$file]);
                 }
@@ -398,7 +450,7 @@ class FirePageController extends FirePagePlugin {
 
         foreach ($menu_link->child_menu_links as $idx => &$child_menu_links_item) {
             $menu_dir = $child_menu_links_item->menu_dir;
-            if (array_key_exists($menu_dir, $map) && $map[$menu_dir]->hide) {
+            if (array_key_exists($menu_dir, $map) && isset($map[$menu_dir]['hide'])) {
                 unset($menu_link->child_menu_links[$idx]);
             } else {
                 $this->remap_menu_links($child_menu_links_item);
@@ -536,64 +588,6 @@ class FirePageController extends FirePagePlugin {
         }
 
         // Now return normal view object
-        return $view;
-    }
-
-    /**
-     * It looks for script named <page_name>.php, or page-<page_ext>.php in theme to process request. 
-     * If a script is found and called, it will return null so next request filter will not process View object.
-     * Else if no script is found or called, then the original $view is returned back.
-     * 
-     * The theme page .php script will have access to "$controller" and "$page" global variables.
-     *
-     * NOTE: The $page argument is passed by ref and it's modifiable.
-     */
-    function process_theme_request(FirePageContext &$page, FPView $view): ?FPView {
-        $theme = $this->app->config->theme;
-        if ($theme === null) {
-            return $view;
-        }
-
-        $processed_by_theme = false;
-        $page->parent_url_path = dirname($page->url_path);
-        $page->theme_url = $page->parent_url_path . "themes/" . $theme;
-        $controller = $this; // This $controller variables will be expose to theme.
-        $page_admin_file = FIREPAGE_THEMES_DIR . "/{$theme}/admin-page.php";
-        if ($page->is_admin && file_exists($page_admin_file)) {
-            // Process admin page
-            require_once $page_admin_file;
-            $processed_by_theme = true;
-        } else {
-            $page_ext = pathinfo($page->page_name, PATHINFO_EXTENSION);
-            $page_name_file = FIREPAGE_THEMES_DIR . "/{$theme}/{$page->page_name}.php";
-            $page_name_base = pathinfo($page_name_file, PATHINFO_BASENAME);
-            $page_name_base_file = FIREPAGE_THEMES_DIR . "/{$theme}/{$page_name_base}.php";
-            $page_ext_file = FIREPAGE_THEMES_DIR . "/{$theme}/page-{$page_ext}.php";
-            $page_file = FIREPAGE_THEMES_DIR . "/{$theme}/page.php";
-
-            if (file_exists($page_name_file)) {
-                // Process by full page name
-                require_once $page_name_file;
-                $processed_by_theme = true;
-            } else if (file_exists($page_name_base_file)) {
-                // Process by base page name
-                require_once $page_name_base_file;
-                $processed_by_theme = true;
-            } else if (file_exists($page_ext_file)) {
-                // Process by page extension
-                require_once $page_ext_file;
-                $processed_by_theme = true;
-            } else if (file_exists($page_file)) {
-                // Process by explicit 'page.php'
-                require_once $page_file;
-                $processed_by_theme = true;
-            }
-        }
-        
-        if ($processed_by_theme) {
-            return null;
-        }
-        
         return $view;
     }
 
@@ -751,13 +745,6 @@ class FirePageView implements FPView {
     public function init(): void {}
     public function destroy(): void {}
 
-    public function render(FirePageContext $page): void {
-        $this->page = $page;
-        $this->echo_header();
-        $this->echo_body_content();
-        $this->echo_footer();
-    }
-    
     function get_menu_links() {
         $controller = $this->app->controller;
         $page = $this->page;
@@ -778,6 +765,118 @@ class FirePageView implements FPView {
             $controller->sort_menu_links($menu_links);
         }
         return $menu_links;
+    }
+
+    public function render(FirePageContext $page): void {
+        $this->page = $page;
+        $this->echo_start_html();
+        $this->echo_head();
+        $this->echo_body();
+        $this->echo_end_html();
+    }
+    
+    function echo_start_html() {
+        echo '<!doctype html>';
+        echo '<html lang="en">';
+    }
+
+    function echo_end_html() {
+        echo '</html>';
+    }
+
+    function echo_head() {
+        ?>
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+            <?php $this->echo_header_scripts(); ?>
+            <title><?php echo $this->app->config->title ?></title>
+        </head>
+        <?php
+    }
+
+    function echo_body() {
+        echo '<body>';
+        $this->echo_body_content();
+        $this->echo_footer();
+        echo '</body>';
+    }
+
+    function echo_header_scripts() {
+        $page = $this->page;
+        // Start of view template
+        ?>
+        <link rel="stylesheet" href="https://unpkg.com/bulma@0.9.1/css/bulma.min.css">
+        <?php if ($page->is_admin && ($page->action === 'new' || $page->action === 'edit')) { ?>
+        <link rel="stylesheet" href="https://unpkg.com/codemirror@5.58.2/lib/codemirror.css">
+            <script src="https://unpkg.com/codemirror@5.58.2/lib/codemirror.js"></script>
+            <script src="https://unpkg.com/codemirror@5.58.2/addon/mode/overlay.js"></script>
+            <script src="https://unpkg.com/codemirror@5.58.2/mode/javascript/javascript.js"></script>
+            <script src="https://unpkg.com/codemirror@5.58.2/mode/css/css.js"></script>
+            <script src="https://unpkg.com/codemirror@5.58.2/mode/xml/xml.js"></script>
+            <script src="https://unpkg.com/codemirror@5.58.2/mode/htmlmixed/htmlmixed.js"></script>
+            <script src="https://unpkg.com/codemirror@5.58.2/mode/markdown/markdown.js"></script>
+            <script src="https://unpkg.com/codemirror@5.58.2/mode/gfm/gfm.js"></script>
+        <?php } ?>
+        <?php // End of view template
+    }
+
+    function echo_body_content() {
+        $controller = $this->app->controller;
+        $page = $this->page;
+
+        $this->echo_navbar();
+        if ($page->is_admin && ($controller->is_password_enabled() && !$controller->is_logged_in())) {
+            $this->echo_admin_login();
+        } else {
+            if ($page->is_admin) {
+                $this->echo_admin_content();
+            } else {
+                $this->echo_site_content();
+            }
+        }
+    }
+
+    function echo_footer() {
+        $version = FIREPAGE_VERSION;
+        $theme_label = '';
+        if ($this->app->config->theme !== null) {
+            $theme_label = " with <b>" . $this->app->config->theme . "</b> theme";
+        }
+
+        ?>
+        <div class="footer">
+            <p>Powered by <a href="https://github.com/zemian/firepage">FirePage <?php echo $version ?></a>
+                <?php echo $theme_label ?></p>
+        </div>
+        <?php
+    }
+
+    function echo_content() {
+        $content = $this->page->file_content;
+        if ($content === null || $content === '') {
+            '<p class="has-text-danger">File not found!</p>';
+        } else {
+            echo $content;
+        }
+    }
+
+    function echo_site_content() {
+        $page = $this->page;
+        ?>
+        <section class="section">
+            <div class="columns">
+                <div class="column is-3 menu">
+                    <?php $this->echo_menu_links(); ?>
+                </div>
+                <div class="column is-9">
+                    <div class="content">
+                        <?php $this->echo_content(); ?>
+                    </div>
+                </div>
+            </div>
+        </section>
+        <?php
     }
 
     function echo_menu_links($menu_links = null) {
@@ -809,40 +908,6 @@ class FirePageView implements FPView {
         }
         echo "</li>"; // Last menu item
         echo "</ul>";
-    }
-    
-    function echo_header_scripts() {
-        $page = $this->page;
-        // Start of view template
-        ?>
-        <link rel="stylesheet" href="https://unpkg.com/bulma@0.9.1/css/bulma.min.css">
-        <?php if ($page->is_admin && ($page->action === 'new' || $page->action === 'edit')) { ?>
-            <link rel="stylesheet" href="https://unpkg.com/codemirror@5.58.2/lib/codemirror.css">
-            <script src="https://unpkg.com/codemirror@5.58.2/lib/codemirror.js"></script>
-            <script src="https://unpkg.com/codemirror@5.58.2/addon/mode/overlay.js"></script>
-            <script src="https://unpkg.com/codemirror@5.58.2/mode/javascript/javascript.js"></script>
-            <script src="https://unpkg.com/codemirror@5.58.2/mode/css/css.js"></script>
-            <script src="https://unpkg.com/codemirror@5.58.2/mode/xml/xml.js"></script>
-            <script src="https://unpkg.com/codemirror@5.58.2/mode/htmlmixed/htmlmixed.js"></script>
-            <script src="https://unpkg.com/codemirror@5.58.2/mode/markdown/markdown.js"></script>
-            <script src="https://unpkg.com/codemirror@5.58.2/mode/gfm/gfm.js"></script>
-        <?php } ?>
-        <?php // End of view template
-    }
-
-    function echo_header() {
-        $title = $this->app->config->title;
-        ?>
-        <!doctype html>
-        <html lang="en">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
-            <?php $this->echo_header_scripts(); ?>
-            <title><?php echo $title ?></title>
-        </head>
-        <body>
-        <?php
     }
 
     function echo_navbar_admin() {
@@ -999,7 +1064,7 @@ class FirePageView implements FPView {
                         </div>
                     <?php } else if ($page->action === 'page') { ?>
                         <div class="content">
-                            <?php echo $this->get_content($page->file_content); ?>
+                            <?php $this->echo_content(); ?>
                         </div>
                     <?php } else { ?>
                         <div class="message is-warning">
@@ -1046,67 +1111,6 @@ class FirePageView implements FPView {
             </script>
         <?php } /* End of new/edit form for <script> tag */?>
         
-        <?php
-    }
-    
-    function get_content($content) {
-        return $content ?? '<p class="has-text-danger">File not found!</p>';
-    }
-    
-    function echo_page_content() {
-        $page = $this->page;
-        ?>
-        <section class="section">
-            <div class="columns">
-                <div class="column is-3 menu">
-                    <?php $this->echo_menu_links(); ?>
-                </div>
-                <div class="column is-9">
-                    <div class="content">
-                        <?php echo $this->get_content($page->file_content); ?>
-                    </div>
-                </div>
-            </div>
-        </section>
-        <?php
-    }
-    
-    function echo_body_content() {
-        $controller = $this->app->controller;
-        $page = $this->page;
-        
-        // Start of view template
-        ?>
-        
-        <?php $this->echo_navbar(); ?>
-        <?php if ($page->is_admin && ($controller->is_password_enabled() && !$controller->is_logged_in())) {?>
-            <?php $this->echo_admin_login(); ?>
-        <?php } else { /* Not login form. */ ?>
-            <?php if ($page->is_admin) { ?>
-                <?php $this->echo_admin_content(); ?>
-            <?php } else { /* Not admin page */?>
-                <?php $this->echo_page_content(); ?>
-            <?php } /* End of Not admin page */ ?>
-        <?php } /* End of Not login form. */ ?>
-
-        <?php // End of view template
-    }
-    
-    function echo_footer() {
-        $version = FIREPAGE_VERSION;
-        $theme_label = '';
-        if ($this->app->config->theme !== null) {
-            $theme_label = " with <b>" . $this->app->config->theme . "</b> theme";
-        }
-        
-        ?>
-        <div class="footer">
-            <p>Powered by <a href="https://github.com/zemian/firepage">FirePage <?php echo $version ?></a>
-                <?php echo $theme_label ?></p>
-        </div>
-        
-        </body>
-        </html>
         <?php
     }
 }

@@ -2,13 +2,13 @@
 
 class DocsFPView extends FirePageView {
     public function echo_navbar_site() {
-        $app = $this->app;
         $page = $this->page;
+        $title = $this->app->config->title;
         ?>
         <nav class="navbar" role="navigation" aria-label="main navigation">
             <div class="navbar-brand">
                 <div class="navbar-item">
-                    <a class="title" href='<?php echo $page->controller_url; ?>'><?php echo $app->title; ?></a>
+                    <a class="title" href='<?php echo $page->controller_url; ?>'><?php echo $title; ?></a>
                 </div>
 
                 <a role="button" class="navbar-burger burger" aria-label="menu" aria-expanded="false" data-target="docsMenu">
@@ -57,7 +57,7 @@ class DocsFPView extends FirePageView {
         <?php
     }
 
-    public function echo_page_content() {
+    public function echo_site_content() {
         $page = $this->page;
         ?>
         <section class="section">

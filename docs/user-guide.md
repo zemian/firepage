@@ -44,7 +44,7 @@ The Json file should contain a Json object. Below are the default values if you 
     "title": "FirePage",
     "disable_admin": false,
     "admin_password": "",
-    "root_menu_label": "Pages",
+    "root_menu_label": "Site",
     "max_menu_levels": 2,
     "default_dir_name": "",
     "default_file_name": "home.html",
