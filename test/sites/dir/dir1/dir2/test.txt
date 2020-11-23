@@ -1,2 +1,1 @@
-Don't show me!
-<html></html>
+Hello!

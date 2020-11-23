@@ -1,3 +1,4 @@
 {
-  "root_dir": "test/sites/min"
+  "root_dir": "test/sites/min",
+  "title": "MinTest"
 }

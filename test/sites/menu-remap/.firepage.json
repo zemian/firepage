@@ -1,6 +1,6 @@
 {
   "root_dir": "test/sites/menu-remap",
-  "title": "TestSite",
+  "title": "RemapMenuLinksTest",
   "plugins": ["markdown"],
   "files_to_menu_links": {
     "readme.md" : { "order": 0, "label" : "Home" },

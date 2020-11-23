@@ -1,6 +1,6 @@
 {
   "root_dir": "test/sites/all",
-  "title": "TestSite",
+  "title": "AllTest",
   "admin_password": "test123",
   "root_menu_label": "MIXED",
   "max_menu_levels": 5,

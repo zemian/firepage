@@ -1,6 +1,6 @@
 {
   "root_dir": "test/sites/menu",
-  "title": "TestSite",
+  "title": "MenuLinksTest",
   "plugins": ["markdown"],
   "menu_links": {
     "menu_label": "Menu",

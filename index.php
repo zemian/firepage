@@ -670,6 +670,8 @@ class FirePageController extends FirePagePlugin {
             } else if ($action === 'page') {
                 $page->file_content = $this->get_file_content($page->page_name);
                 $this->transform_content($page);
+            } else if ($action === 'login') {
+                // Do nothing here.
             } else {
                 die("Unknown action=$action");
             }
@@ -1001,12 +1003,11 @@ class FirePageView implements FPView {
     function echo_navbar_admin() {
         $page = $this->page;
         $title = $this->app->config->title;
-        $home_url = rtrim($this->page->controller_url, '?');
         ?>
         <div class="navbar">
             <div class="navbar-brand">
                 <div class="navbar-item">
-                    <a class="title" href='<?php echo $home_url; ?>'><?php echo $title; ?></a>
+                    <a class="title" href='<?php echo $this->page->url_path; ?>'><?php echo $title; ?></a>
                 </div>
             </div>
             <div class="navbar-end">
@@ -1024,12 +1025,11 @@ class FirePageView implements FPView {
     }
     
     function echo_navbar_site() {
-        $home_url = rtrim($this->page->controller_url, '?');
         ?>
         <div class="navbar">
             <div class="navbar-brand">
                 <div class="navbar-item">
-                    <a class="title" href='<?php echo $home_url; ?>'><?php echo $this->app->config->title; ?></a>
+                    <a class="title" href='<?php echo $this->page->url_path; ?>'><?php echo $this->app->config->title; ?></a>
                 </div>
             </div>
         </div>
