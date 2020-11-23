@@ -96,6 +96,8 @@ class FirePageMenuLinks {
 /** A class to represent core config parameters. */
 class FirePageConfig {
     public string $root_dir = FIREPAGE_DEAFULT_ROOT_DIR;
+    public string $controllerClass = 'FirePageController';
+    public string $viewClass = 'FirePageView';
     public string $title = 'FirePage';
     public ?string $admin_password = null;
     public string $root_menu_label = 'Pages';
@@ -226,7 +228,8 @@ class FirePageApp {
         $this->config = new FirePageConfig($this->read_config($config_file));
         
         // Create default FP controller
-        $this->controller = new FirePageController($this);
+        $controllerClass = $this->config->controllerClass;
+        $this->controller = new $controllerClass($this);
         
         // Load plugins and theme
         $this->plugins = $this->create_plugins();
@@ -241,7 +244,8 @@ class FirePageApp {
 
         // Process request using plugins chains
         $page = new FirePageContext($this);
-        $view = new FirePageView($this);
+        $viewClass = $this->config->viewClass;
+        $view = new $viewClass($this);
         foreach ($combined_plugins as $plugin) {
             $view = $plugin->process_request($page, $view);
             if ($view === null) {
