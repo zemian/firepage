@@ -7,7 +7,9 @@
     "release.md" : { "order":1, "label" : "Release" },
     "sample.md" : { "order": 2, "label" : "Demo" },
     "license.md" : { "order": 3, "label" : "License", "hide":  true},
+    "submenu/todo.md" : { "order": -2, "label" : "Todo" },
+    "submenu/sample.md" : { "order": -1, "label" : "Demo2" },
     "todo.md" : { "hide": true },
-    "temp" : { "hide": true }
+    "ignoreme" : { "hide": true }
   }
 }
