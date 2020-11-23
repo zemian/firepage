@@ -518,6 +518,91 @@ class FirePageController extends FirePagePlugin {
         }
         return $menu_links;
     }
+    
+    function process_get_request(FirePageContext $page, FPView $view): ?FPView {
+        // Process GET request
+        $action = $page->action;
+        $is_admin = $page->is_admin;
+        
+        if ($is_admin) {
+            if ($action === 'new') {
+                $page->page_name = '';
+                $page->file_content = '';
+            } else if ($action === 'edit') {
+                // Process GET Edit Form
+                $page->file_content = $this->get_file_content($page->page_name);
+            } else if ($action === 'delete-confirmed') {
+                // Process GET - DELETE file
+                $file = $page->page_name;
+                $delete_status = &$page->delete_status; // Use Ref
+                if ($this->delete($file)) {
+                    $delete_status = "File $file deleted";
+                } else {
+                    $delete_status = "File not found: $file";
+                }
+            } else if ($action === 'logout') {
+                $this->logout();
+                $this->redirect($page->controller_url);
+            } else if ($action === 'page') {
+                $page->file_content = $this->get_file_content($page->page_name);
+                $this->transform_content($page);
+            }
+        } else {
+            // GET - Not Admin Actions
+            if ($action === 'page'){
+                $page->file_content = $this->get_file_content($page->page_name);
+
+                // Handle .JSON file specially
+                if (FirePageUtils::ends_with($page->page_name, '.json') && $page->file_content !== null) {
+                    header('Content-Type: application/json');
+                    echo $page->file_content;
+                    return null;
+                }
+                
+                // Now handle normal transform if needed.
+                $this->transform_content($page);
+            } else {
+                die("Unknown action=$action");
+            }
+        }
+        
+        return $view;
+    }
+
+    function process_post_request(FirePageContext $page, FPView $view): ?FPView {
+        // Process POST request
+        $page->action = $_POST['action'];
+        $action = $page->action;
+        if ($action === 'login_submit') {
+            $password = $_POST['password'];
+            $admin_password = $this->app->config->admin_password;
+
+            $page->form_error = $this->login($password, $admin_password);
+            if ($page->form_error === null) {
+                $this->redirect($page->controller_url);
+            }
+        } else if ($action === 'new_submit' || $action === 'edit_submit') {
+            $page->page_name = $_POST['page'];
+            $page->file_content = $_POST['file_content'];
+
+            $file = $page->page_name;
+            $file_content = $page->file_content;
+            if ($page->form_error === null) {
+                $is_exists_check = $action === 'new_submit';
+                $page->form_error = $this->validate_note_name($file, $is_exists_check);
+            }
+            if ($page->form_error === null) {
+                $page->form_error = $this->validate_note_content($file_content);
+            }
+            if ($page->form_error === null) {
+                $this->write($file, $file_content);
+                $this->redirect($page->controller_url . "page=$file");
+            }
+        } else {
+            die("Unknown action=$action");
+        }
+        return $view;
+    }
 
     function process_request(FirePageContext $page, FPView $view): ?FPView {
         // If this is admin request, and if password is enabled start session
@@ -531,99 +616,29 @@ class FirePageController extends FirePagePlugin {
                 $page->action = "login";
             }
         }
-
-        // Process Request and return $page var
-        $action = $page->action;
-
-        // Process POST requests
+        
+        // Process request by HTTP method
         if (isset($_POST['action'])) {
-            $page->action = $_POST['action'];
-
-            $action = $page->action;
-            if ($action === 'login_submit') {
-                $password = $_POST['password'];
-                $admin_password = $this->app->config->admin_password;
-
-                $page->form_error = $this->login($password, $admin_password);
-                if ($page->form_error === null) {
-                    $this->redirect($page->controller_url);
-                }
-            } else if ($action === 'new_submit' || $action === 'edit_submit') {
-                $page->page_name = $_POST['page'];
-                $page->file_content = $_POST['file_content'];
-
-                $file = $page->page_name;
-                $file_content = $page->file_content;
-                if ($page->form_error === null) {
-                    $is_exists_check = $action === 'new_submit';
-                    $page->form_error = $this->validate_note_name($file, $is_exists_check);
-                }
-                if ($page->form_error === null) {
-                    $page->form_error = $this->validate_note_content($file_content);
-                }
-                if ($page->form_error === null) {
-                    $this->write($file, $file_content);
-                    $this->redirect($page->controller_url . "page=$file");
-                }
-            } else {
-                die("Unknown action=$action");
-            }
+            $view = $this->process_post_request($page, $view);
         } else {
-            // Process GET request
-            $is_admin = $page->is_admin;
-            if ($is_admin) {
-                if ($action === 'new') {
-                    $page->page_name = '';
-                    $page->file_content = '';
-                } else if ($action === 'edit') {
-                    // Process GET Edit Form
-                    $page->file_content = $this->get_file_content($page->page_name);
-                } else if ($action === 'delete-confirmed') {
-                    // Process GET - DELETE file
-                    $file = $page->page_name;
-                    $delete_status = &$page->delete_status; // Use Ref
-                    if ($this->delete($file)) {
-                        $delete_status = "File $file deleted";
-                    } else {
-                        $delete_status = "File not found: $file";
-                    }
-                } else if ($action === 'logout') {
-                    $this->logout();
-                    $this->redirect($page->controller_url);
-                } else if ($action === 'page') {
-                    $page->file_content = $this->get_file_content($page->page_name);
-                    $this->transform_content($page);
-                }
-            } else {
-                // GET - Not Admin Actions
-                if ($action === 'page'){
-                    $page->file_content = $this->get_file_content($page->page_name);
-
-                    // Do not provide any view object for .json file
-                    if (FirePageUtils::ends_with($page->page_name, '.json')) {
-                        header('Content-Type: application/json');
-                        echo $page->file_content;
-                        return null;
-                    }
-                    
-                    $this->transform_content($page);
-                } else {
-                    die("Unknown action=$action");
-                }
-            }
+            $view = $this->process_get_request($page, $view);
         }
 
-        // Now return normal view object
         return $view;
     }
 
     function transform_content(FirePageContext &$page) {
+        // Plugin should set $page->is_content_transformed flag if it has handled the content transformation
         $this->app->call_plugins_event_listener('transform_content', $page);
 
-        // If it's an empty file, we will show a default empty message
+        // If plugin didn't do any transformation, let's use default action here.
         if (!$page->is_content_transformed) {
-            if ($page->file_content === null || $page->file_content === '') {
-                $page->file_content = '<i>This page is empty!</i>';
+            // If it's an empty file, we will show a default empty message
+            if ($page->file_content === null) {
+                $page->file_content = '<i class="has-text-danger">File not found!</i>';
+                $page->is_content_transformed = true;
+            } else if ($page->file_content === '') {
+                $page->file_content = '<i class="has-text-warning">This page is empty!</i>';
                 $page->is_content_transformed = true;
             } else {
                 // If content is not .html or .json, wraps it in preformat tag
@@ -879,12 +894,8 @@ class FirePageView implements FPView {
     }
 
     function echo_content() {
-        $content = $this->page->file_content;
-        if ($content === null || $content === '') {
-            '<p class="has-text-danger">File not found!</p>';
-        } else {
-            echo $content;
-        }
+        $content = $this->page->file_content ?? '';
+        echo $content;
     }
 
     function echo_site_content() {

@@ -19,7 +19,7 @@ class markdownFPPlugin extends FirePagePlugin {
     }
 
     public function init(): void {
-        // Ensure exts are registered
+        // Ensure extensions are registered
         $ext_list = $this->app->config->file_extension_list;
         foreach (self::MD_EXTS as $ext) {
             if (!in_array($ext, $ext_list)) {
