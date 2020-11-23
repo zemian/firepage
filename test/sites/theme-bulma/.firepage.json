@@ -1,0 +1,6 @@
+{
+  "root_dir": "test/sites/theme-bulma",
+  "title": "BulmaOfflineThemeTest",
+  "theme": "bulma",
+  "view_class": "BulmaFPView"
+}

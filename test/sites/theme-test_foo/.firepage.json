@@ -1,6 +1,6 @@
 {
-  "root_dir": "test/sites/theme-test-foo",
-  "title": "Test Theme - theme-test-foo",
-  "theme": "test-foo",
-  "controller_class": "TestFooController"
+  "root_dir": "test/sites/theme-test_foo",
+  "title": "TestFooThemeTest",
+  "theme": "test_foo",
+  "view_class": "TestFooFPView"
 }

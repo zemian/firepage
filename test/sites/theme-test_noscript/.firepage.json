@@ -1,5 +1,5 @@
 {
   "root_dir": "test/sites/theme-test-no-script",
-  "title": "Test Theme - theme-test-no-script",
+  "title": "NoScriptThemeTest",
   "theme": "test-foo"
 }

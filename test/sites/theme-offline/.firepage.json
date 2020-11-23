@@ -1,6 +1,0 @@
-{
-  "root_dir": "test/sites/theme-offline",
-  "title": "Offline Theme Test",
-  "theme": "bulma-offline",
-  "view_class": "FPBulmaOfflineView"
-}
