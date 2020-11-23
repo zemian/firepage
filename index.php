@@ -954,7 +954,7 @@ class FirePageView implements FPView {
                     <?php $this->echo_menu_links(); ?>
                 </div>
                 <div class="column is-9">
-                    <div class="content">
+                    <div class="content" style="min-height: 60vh;">
                         <?php $this->echo_content(); ?>
                     </div>
                 </div>
@@ -1148,16 +1148,9 @@ class FirePageView implements FPView {
                                 <p class="block"><?php echo $page->delete_status; ?></p>
                             </div>
                         </div>
-                    <?php } else if ($page->action === 'page') { ?>
-                        <div class="content">
-                            <?php $this->echo_content(); ?>
-                        </div>
                     <?php } else { ?>
-                        <div class="message is-warning">
-                            <div class="message-header">Oops!</div>
-                            <div class="message-body">
-                                <p class="block">We can not process this action: <?php echo $page->action ; ?></p>
-                            </div>
+                        <div class="content" style="min-height: 60vh;">
+                            <?php $this->echo_content(); ?>
                         </div>
                     <?php } ?>
                 </div>
