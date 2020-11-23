@@ -1,21 +1,16 @@
 {
   "root_dir": "test/sites/menu",
   "title": "TestSite",
-  "admin_password": "",
-  "root_menu_label": "Notes",
-  "max_menu_levels": 2,
-  "default_dir_name": "",
-  "default_file_name": "readme.md",
-  "file_extension_list": [".md"],
+  "plugins": ["markdown"],
   "menu_links": {
-    "menu_label": "Notes",
+    "menu_label": "Menu",
     "menu_name": "",
     "menu_order": 1,
     "links": [
-      { "order": 1, "label" : "Home", "file": "readme.md" },
-      { "order": 2, "label" : "Markdown Sample", "file": "sample.md" },
-      { "order": 3, "label" : "Release Notes", "file": "release.md" },
-      { "order": 4, "label" : "License", "file": "license.md" }
+      { "order": 1, "label" : "Home", "page": "readme.md" },
+      { "order": 2, "label" : "Markdown Sample", "page": "sample.md" },
+      { "order": 3, "label" : "Release Notes", "page": "release.md" },
+      { "order": 4, "label" : "License", "page": "license.md" }
     ],
     "child_menu_links": []
   }

@@ -1,0 +1,13 @@
+{
+  "root_dir": "test/sites/menu-remap",
+  "title": "TestSite",
+  "plugins": ["markdown"],
+  "files_to_menu_links": {
+    "readme.md" : { "order": 0, "label" : "Home" },
+    "release.md" : { "order":1, "label" : "Release" },
+    "sample.md" : { "order": 2, "label" : "Demo" },
+    "license.md" : { "order": 3, "label" : "License", "hide":  true},
+    "todo.md" : { "hide": true },
+    "temp" : { "hide": true }
+  }
+}

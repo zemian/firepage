@@ -90,11 +90,19 @@ class FirePageUtils {
 
 /** Nav Link object */
 class FirePageLink {
-    public string $page = '';
+    public ?string $url = null;
+    public ?string $page = null;
     public int $order = 1;
     public string $label = '';
-    public string $url = '';
-    public bool $hide = false;
+    
+    public function __construct(array $map = []) {
+        $this->update($map);
+    }
+    public function update(array $map) {
+        foreach ($map as $k => $v) {
+            $this->$k = $v;
+        }
+    }
 }
 
 /** Nav MenuLinks object */
@@ -105,6 +113,28 @@ class FirePageMenuLinks {
     public string $menu_dir = '';
     public array $links = []; // array of FirePageLink
     public array $child_menu_links = []; // array of FirePageMenuLinks
+    
+    public function __construct(array $map = []) {
+        $this->update($map);
+    }
+
+    function update(array $map) {
+        foreach ($map as $k => $v) {
+            if ($k === 'child_menu_links') {
+                foreach ($v as $menu_link_map) {
+                    $new_item = new FirePageMenuLinks($menu_link_map);
+                    array_push($this->child_menu_links, $new_item);
+                }
+            } else if ($k === 'links') {
+                foreach ($v as $link_map) {
+                    $new_item = new FirePageLink($link_map);
+                    array_push($this->links, $new_item);
+                }
+            } else {
+                $this->$k = $v;
+            }
+        }
+    }
 }
 
 /** A class to represent core config parameters. */
@@ -123,20 +153,25 @@ class FirePageConfig {
     public array $exclude_file_list = ["plugins", "themes", "admin-home.html"];
     public ?array $files_to_menu_links = null; // a Map of page_name to FPLink for override
     public bool $pretty_file_to_label = true;
-    public ?FPMenuLinks $menu_links = null;
+    public ?FirePageMenuLinks $menu_links = null;
     public bool $disable_admin = false;
     public ?string $theme = null;
     public ?array $plugins = null;
 
-    public function __construct(?array $config) {
+    public function __construct(?array $config = null) {
         // Override config parameters if given
         if ($config !== null) {
             foreach ($config as $key => $value) {
-                $this->$key = $value;
+                if ($key === 'menu_links') {
+                    $this->menu_links = new FirePageMenuLinks($value); // $value is a map
+                } else {
+                    $this->$key = $value;
+                }
             }
+            
+            // A root_dir of '' needs to use explicit path
+            $this->root_dir = $this->root_dir ?: FIREPAGE_DEAFULT_ROOT_DIR;
         }
-        // A root_dir of '' needs to use explicit path
-        $this->root_dir = $this->root_dir ?: FIREPAGE_DEAFULT_ROOT_DIR;
     }
 }
 
@@ -436,8 +471,8 @@ class FirePageController extends FirePagePlugin {
         return $this->get_admin_session() !== null;
     }
 
-    // We need to accept array reference so we can modify array in-place!
-    function sort_menu_links(&$menu_links) {
+    /** Sort menu links according to the "order" property. */
+    function sort_menu_links(FirePageMenuLinks &$menu_links) {
         usort($menu_links->links, function ($a, $b) {
             $ret = $a->order <=> $b->order;
             if ($ret === 0) {
@@ -457,19 +492,21 @@ class FirePageController extends FirePagePlugin {
         }
     }
 
-    function remap_menu_links(&$menu_link) {
+    /** Remap a FirePageMenuLinks to one given in config parameters. Allow user override. */
+    function remap_menu_links(FirePageMenuLinks &$menu_link) {
         $map = $this->app->config->files_to_menu_links;
         if ($map === null) {
             return;
         }
+        
         foreach ($menu_link->links as $idx => &$link) {
-            $file = $link->page;
-            if (array_key_exists($file, $map)) {
-                $new_link = $map[$file];
+            $page_name = $link->page;
+            if (array_key_exists($page_name, $map)) {
+                $new_link = $map[$page_name];
                 if (isset($new_link['hide'])) {
-                    unset($menu_link['links'][$idx]);
+                    unset($menu_link->links[$idx]);
                 } else {
-                    $link = array_merge($link, $map[$file]);
+                    $link->update($new_link);
                 }
             }
         }
@@ -484,6 +521,7 @@ class FirePageController extends FirePagePlugin {
         }
     }
 
+    /** Build a FirePageMenuLinks object based on dir tree and files. */
     function get_menu_links_tree($dir, $max_level, $menu_order = 1): FirePageMenuLinks {
         $dir_name = ($dir === '') ? $this->app->config->root_menu_label : pathinfo($dir, PATHINFO_FILENAME);
         $menu_links = new FirePageMenuLinks();
@@ -494,17 +532,14 @@ class FirePageController extends FirePagePlugin {
 
         $files = $this->get_files($dir);
         $i = 1;
-        $default_dir_name = $this->app->config->default_dir_name;
         foreach ($files as $file) {
-            $file_path = ($dir === '') ? $file : "$dir/$file";
-            $url_path = $default_dir_name ? "{$default_dir_name}/$file_path" : $file_path;
+            $page_name = ($dir === '') ? $file : "$dir/$file";
             $label = $this->pretty_file_to_label($file);
             
             $link = new FirePageLink();
-            $link->page = $file_path;
+            $link->page = $page_name;
             $link->order = $i++;
             $link->label = $label;
-            $link->url = $url_path;
             array_push($menu_links->links, $link);
         }
 
@@ -525,18 +560,22 @@ class FirePageController extends FirePagePlugin {
         $default_dir_name = $this->app->config->default_dir_name;
         $max_menu_levels = $this->app->config->max_menu_levels;
         if ($is_admin) {
+            // For admin UI, we always get menu links from dir/files tree
             $menu_links = $controller->get_menu_links_tree($default_dir_name, $max_menu_levels);
         } else {
+            // For non-admin UI, the menu_links might be user given or dir tree with remap.
             if ($this->app->config->menu_links !== null) {
-                // If config has manually given menu_links, return just that.
+                // If config has manually given menu_links, just build from that map
                 $menu_links = $this->app->config->menu_links;
             } else {
-                // Else, auto generate menu_links based on dirs/files listing
+                // Else, auto generate menu_links based on dirs/files listing and remap if there is any
                 $menu_links = $controller->get_menu_links_tree($default_dir_name, $max_menu_levels);
                 $controller->remap_menu_links($menu_links);
             }
-            $controller->sort_menu_links($menu_links);
         }
+        
+        // We will sort the menu links before return.
+        $controller->sort_menu_links($menu_links);
         return $menu_links;
     }
     
@@ -779,7 +818,7 @@ class FirePageContext {
     public ?string $form_error = null;
     public ?string $delete_status = null;
     public bool $is_content_transformed = false;
-    public FirePageMenuLinks $menu_links;
+    public ?FirePageMenuLinks $menu_links = null;
     
     function __construct(FirePageApp $app) {   
         $this->app = $app;
@@ -937,10 +976,13 @@ class FirePageView implements FPView {
         $i = 0; // Use to track last item in loop
         $files_len = count($menu_links->links);
         foreach ($menu_links->links as $link) {
-            $label = $link->label;
             $url = $link->url;
-            $is_active = ($url === $active_file) ? "is-active": "";
-            echo "<li><a class='$is_active' href='{$controller_url}page=$url'>$label</a>";
+            $page_name = $link->page;
+            if ($url === null && $page_name !== null) {
+                $url = $controller_url . "?page=" . $page_name;
+            }
+            $is_active = ($page_name === $active_file) ? "is-active": "";
+            echo "<li><a class='$is_active' href='$url'>$link->label</a>";
             if ($i++ < ($files_len - 1)) {
                 echo "</li>"; // We close all <li> except last one so Bulma menu list can be nested
             }
