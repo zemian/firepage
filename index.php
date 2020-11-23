@@ -484,7 +484,7 @@ class FirePageController extends FirePagePlugin {
         }
     }
 
-    function get_menu_links_tree($dir, $max_level, $menu_order = 1) {
+    function get_menu_links_tree($dir, $max_level, $menu_order = 1): FirePageMenuLinks {
         $dir_name = ($dir === '') ? $this->app->config->root_menu_label : pathinfo($dir, PATHINFO_FILENAME);
         $menu_links = new FirePageMenuLinks();
         $menu_links->menu_order = $menu_order;
@@ -515,6 +515,27 @@ class FirePageController extends FirePagePlugin {
                 $sub_tree = $this->get_menu_links_tree($dir_path, $max_level - 1, $menu_order + 1);
                 array_push($menu_links->child_menu_links, $sub_tree);
             }
+        }
+        return $menu_links;
+    }
+    
+    function get_menu_links($is_admin): FirePageMenuLinks {
+        $menu_links = null;
+        $controller = $this->app->controller;
+        $default_dir_name = $this->app->config->default_dir_name;
+        $max_menu_levels = $this->app->config->max_menu_levels;
+        if ($is_admin) {
+            $menu_links = $controller->get_menu_links_tree($default_dir_name, $max_menu_levels);
+        } else {
+            if ($this->app->config->menu_links !== null) {
+                // If config has manually given menu_links, return just that.
+                $menu_links = $this->app->config->menu_links;
+            } else {
+                // Else, auto generate menu_links based on dirs/files listing
+                $menu_links = $controller->get_menu_links_tree($default_dir_name, $max_menu_levels);
+                $controller->remap_menu_links($menu_links);
+            }
+            $controller->sort_menu_links($menu_links);
         }
         return $menu_links;
     }
@@ -620,10 +641,17 @@ class FirePageController extends FirePagePlugin {
 
     function process_request(FirePageContext $page, FPView $view): ?FPView {
         if ($page->is_admin) {
-            return $this->process_request_admin($page, $view);
+            $view = $this->process_request_admin($page, $view);
+        } else {
+            $view = $this->process_request_site($page, $view);
         }
         
-        return $this->process_request_site($page, $view);
+        // Get additional page data for rendering
+        if ($view !== null) {
+            $page->menu_links = $this->get_menu_links($page->is_admin);
+        }
+        
+        return $view;
     }
 
     function transform_content(FirePageContext &$page) {
@@ -751,6 +779,7 @@ class FirePageContext {
     public ?string $form_error = null;
     public ?string $delete_status = null;
     public bool $is_content_transformed = false;
+    public FirePageMenuLinks $menu_links;
     
     function __construct(FirePageApp $app) {   
         $this->app = $app;
@@ -784,28 +813,6 @@ class FirePageView implements FPView {
     
     public function init(): void {}
     public function destroy(): void {}
-
-    function get_menu_links() {
-        $controller = $this->app->controller;
-        $page = $this->page;
-        $menu_links = null;
-        $default_dir_name = $this->app->config->default_dir_name;
-        $max_menu_levels = $this->app->config->max_menu_levels;
-        if ($page->is_admin) {
-            $menu_links = $controller->get_menu_links_tree($default_dir_name, $max_menu_levels);
-        } else {
-            if ($this->app->config->menu_links !== null) {
-                // If config has manually given menu_links, return just that.
-                $menu_links = $this->app->config->menu_links;
-            } else {
-                // Else, auto generate menu_links based on dirs/files listing
-                $menu_links = $controller->get_menu_links_tree($default_dir_name, $max_menu_levels);
-                $controller->remap_menu_links($menu_links);
-            }
-            $controller->sort_menu_links($menu_links);
-        }
-        return $menu_links;
-    }
 
     public function render(FirePageContext $page): void {
         $this->page = $page;
@@ -917,7 +924,8 @@ class FirePageView implements FPView {
 
     function echo_menu_links($menu_links = null) {        
         if ($menu_links === null) {
-            $menu_links = $this->get_menu_links();
+            // Default menu links is from page data, else it's a recursive from sub menu
+            $menu_links = $this->page->menu_links;
         }
         
         echo "<p class='menu-label'>{$menu_links->menu_label}</p>";
@@ -934,14 +942,17 @@ class FirePageView implements FPView {
             $is_active = ($url === $active_file) ? "is-active": "";
             echo "<li><a class='$is_active' href='{$controller_url}page=$url'>$label</a>";
             if ($i++ < ($files_len - 1)) {
-                echo "</li>"; // We close all <li> except last one so Bulma memu list can be nested
+                echo "</li>"; // We close all <li> except last one so Bulma menu list can be nested
             }
         }
-
+        
+        // Recurse into sub menu
         foreach ($menu_links->child_menu_links as $child_menu_links_item) {
             $this->echo_menu_links($child_menu_links_item);
         }
-        echo "</li>"; // Last menu item
+        
+        // Print Last menu list tag
+        echo "</li>";
         echo "</ul>";
     }
 
