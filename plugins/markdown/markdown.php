@@ -26,6 +26,7 @@ class markdownPlugin extends FirePagePlugin {
         $file = $page->page_name;
         if (FirePageUtils::ends_with($file, '.md') || FirePageUtils::ends_with($file, '.markdown')) {
             $page->file_content = $this->convert_to_markdown($page->file_content);
+            $page->is_content_transformed = true;
         }
     }
 }

@@ -91,7 +91,6 @@ class FirePageMenuLinks {
     public string $menu_dir = '';
     public array $links = []; // array of FirePageLink
     public array $child_menu_links = []; // array of FirePageMenuLinks
-    public bool $hide = false;
 }
 
 /** A class to represent core config parameters. */
@@ -111,6 +110,7 @@ class FirePageConfig {
     public ?FPMenuLinks $menu_links = null;
     public bool $disable_admin = false;
     public ?string $theme = null;
+    public ?array $plugins = null;
 
     public function __construct(?array $config) {
         // Override config parameters if given
@@ -597,8 +597,18 @@ class FirePageController extends FirePagePlugin {
         $this->app->call_plugins_action('transform_content', $page);
 
         // If it's an empty file, we will show a default empty message
-        if ($page->file_content === '') {
-            $page->file_content = '<i>This page is empty!</i>';
+        if (!$page->is_content_transformed) {
+            if ($page->file_content === '') {
+                $page->file_content = '<i>This page is empty!</i>';
+                $page->is_content_transformed = true;
+            } else {
+                // If content is not .html or .json, wraps it in preformat tag
+                $file = $page->page_name;
+                if (!(FirePageUtils::ends_with($file, '.html') || FirePageUtils::ends_with($file, '.json'))) {
+                    $page->file_content = '<pre>' . htmlentities($page->file_content) . '</pre>';
+                    $page->is_content_transformed = true;
+                }
+            }
         }
     }
     
@@ -702,6 +712,7 @@ class FirePageContext {
     public ?string $file_content = null;
     public ?string $form_error = null;
     public ?string $delete_status = null;
+    public bool $is_content_transformed = false;
     
     function __construct(FirePageApp $app) {   
         $this->app = $app;
