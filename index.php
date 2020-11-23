@@ -979,7 +979,7 @@ class FirePageView implements FPView {
             $url = $link->url;
             $page_name = $link->page;
             if ($url === null && $page_name !== null) {
-                $url = $controller_url . "?page=" . $page_name;
+                $url = $controller_url . "page=" . $page_name;
             }
             $is_active = ($page_name === $active_file) ? "is-active": "";
             echo "<li><a class='$is_active' href='$url'>$link->label</a>";

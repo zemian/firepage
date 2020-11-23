@@ -10,8 +10,20 @@
       { "order": 1, "label" : "Home", "page": "readme.md" },
       { "order": 2, "label" : "Markdown Sample", "page": "sample.md" },
       { "order": 3, "label" : "Release Notes", "page": "release.md" },
-      { "order": 4, "label" : "License", "page": "license.md" }
+      { "order": 4, "label" : "License", "page": "license.md" },
+      { "order": 5, "label" : "Search", "url": "https://www.google.com" }
     ],
-    "child_menu_links": []
+    "child_menu_links": [
+      {
+        "menu_label": "SubMenu",
+        "menu_name": "submenu",
+        "menu_order": 1,
+        "links": [
+          { "order": 1, "label" : "Todo", "page": "submenu/todo.md" },
+          { "order": 2, "label" : "Demo", "page": "submenu/sample.md" }
+        ],
+        "child_menu_links": []
+      }
+    ]
   }
 }
