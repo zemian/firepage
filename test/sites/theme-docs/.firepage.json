@@ -1,14 +1,13 @@
 {
   "root_dir": "test/sites/theme-docs",
-  "title": "FirePage Docs",
+  "title": "Docs Theme Test",
   "theme": "docs",
   "plugins": ["markdown"],
-  "file_extension_list": [".html", ".txt", ".json", ".md"],
   "view_class": "DocsFPView",
 
   "files_to_menu_links": {
-    "readme.md" : { "order": 0, "label" : "Home" },
-    "release.md" : { "order":2, "label" : "Release Notes" },
-    "license.md" : { "order": 3, "label" : "License" }
+    "readme.md" : { "order": 10, "label" : "Home" },
+    "release.md" : { "order": 11, "label" : "Release Notes" },
+    "license.md" : { "order": 12, "label" : "License" }
   }
 }

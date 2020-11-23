@@ -8,7 +8,7 @@ class DocsFPView extends FirePageView {
         <nav class="navbar" role="navigation" aria-label="main navigation">
             <div class="navbar-brand">
                 <div class="navbar-item">
-                    <a class="title" href='<?php echo $page->controller_url; ?>'><?php echo $title; ?></a>
+                    <a class="title" href='<?php echo $page->url_path; ?>'><?php echo $title; ?></a>
                 </div>
 
                 <a role="button" class="navbar-burger burger" aria-label="menu" aria-expanded="false" data-target="docsMenu">
@@ -20,22 +20,22 @@ class DocsFPView extends FirePageView {
 
             <div id="docsMenu" class="navbar-menu">
                 <div class="navbar-start">
-                    <?php foreach ($this->get_menu_links()['links'] as $link) { ?>
-                        <a class="navbar-item" href="<?php echo $page->controller_url . 'page=' . $link['url']; ?>">
-                            <?php echo $link['label']; ?>
+                    <?php foreach ($page->menu_links->links as $link) { ?>
+                        <a class="navbar-item" href="<?php echo $page->controller_url . 'page=' . $link->page; ?>">
+                            <?php echo $link->label; ?>
                         </a>
                     <?php } ?>
 
-                    <?php foreach ($this->get_menu_links()['child_menu_links'] as $menu_links) { ?>
+                    <?php foreach ($page->menu_links->child_menu_links as $menu_links) { ?>
                         <div class="navbar-item has-dropdown is-hoverable">
                             <a class="navbar-link">
-                                <?php echo $menu_links['menu_label']; ?>
+                                <?php echo $menu_links->menu_label; ?>
                             </a>
 
                             <div class="navbar-dropdown">
-                                <?php foreach ($menu_links['links'] as $link) { ?>
-                                    <a class="navbar-item" href="<?php echo $page->controller_url . 'page=' . $link['url']; ?>">
-                                        <?php echo $link['label']; ?>
+                                <?php foreach ($menu_links->links as $link) { ?>
+                                    <a class="navbar-item" href="<?php echo $page->controller_url . 'page=' . $link->page; ?>">
+                                        <?php echo $link->label; ?>
                                     </a>
                                 <?php } ?>
                             </div>
@@ -56,17 +56,16 @@ class DocsFPView extends FirePageView {
         </nav>
         <?php
     }
-
-    public function echo_site_content() {
-        $page = $this->page;
+    
+    function echo_site_content() {
         ?>
         <section class="section">
             <div class="columns">
                 <div class="column is-3 menu">
                 </div>
                 <div class="column is-9">
-                    <div class="content">
-                        <?php echo $page->file_content; ?>
+                    <div class="content" style="min-height: 60vh;">
+                        <?php $this->echo_content(); ?>
                     </div>
                 </div>
             </div>
