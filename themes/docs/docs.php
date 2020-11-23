@@ -1,6 +1,6 @@
 <?php
 
-class DocsView extends FirePageView {
+class DocsFPView extends FirePageView {
     public function echo_navbar_site() {
         $app = $this->app;
         $page = $this->page;
@@ -72,11 +72,5 @@ class DocsView extends FirePageView {
             </div>
         </section>
         <?php
-    }
-}
-
-class DocsController extends FirePageController {
-    public function create_view($page) {
-        return new DocsView($this, $page);
     }
 }

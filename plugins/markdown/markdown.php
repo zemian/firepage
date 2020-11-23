@@ -9,7 +9,7 @@
 require_once 'parsedown-1.7.4/Parsedown.php';
 require_once 'parsedown-extra-0.8.1/ParsedownExtra.php';
 
-class markdownPlugin extends FirePagePlugin {
+class markdownFPPlugin extends FirePagePlugin {
     public FirePageApp $app;
     public Parsedown $md_parser;
 

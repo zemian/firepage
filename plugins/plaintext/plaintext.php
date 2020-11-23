@@ -10,7 +10,7 @@
  * A plugin must define a class named "<plugin-name>Plugin", and you may "redefine" any methods you see
  * in the FirePageController to act as a hook. 
  */
-class plaintextPlugin extends FirePagePlugin {
+class plaintextFPPlugin extends FirePagePlugin {
     public $app;
 
     public function __construct(FirePageApp $app) {

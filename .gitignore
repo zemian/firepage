@@ -2,5 +2,5 @@
 .idea/
 temp/
 test/sites/release/firepage*
-plugins/test*/
-themes/test*/
+plugins/test_*/
+themes/test_*/

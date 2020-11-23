@@ -159,7 +159,7 @@ class FirePageApp {
                 $plugin_file = FIREPAGE_PLUGINS_DIR . "/{$plugin}/{$plugin}.php";
                 if (file_exists($plugin_file)) {
                     require_once $plugin_file;
-                    $plugin_class_name = "{$plugin}Plugin";
+                    $plugin_class_name = "{$plugin}FPPlugin";
                     if (class_exists($plugin_class_name)) {
                         $plugin_obj = new $plugin_class_name($this);
                         array_push($ret, $plugin_obj);
@@ -179,7 +179,7 @@ class FirePageApp {
             $theme_file = FIREPAGE_THEMES_DIR . "/{$theme_name}/{$theme_name}.php";
             if (file_exists($theme_file)) {
                 require_once $theme_file;
-                $theme_class_name = "{$theme_name}Theme";
+                $theme_class_name = "{$theme_name}FPPlugin";
                 if (class_exists($theme_class_name)) {
                     $ret = new $theme_class_name($this);
                 }

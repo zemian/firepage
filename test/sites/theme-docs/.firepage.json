@@ -1,9 +1,10 @@
 {
   "root_dir": "test/sites/theme-docs",
   "title": "FirePage Docs",
-  "pretty_file_to_label": true,
   "theme": "docs",
-  "controller_class": "DocsController",
+  "plugins": ["markdown"],
+  "file_extension_list": [".html", ".txt", ".json", ".md"],
+  "view_class": "DocsFPView",
 
   "files_to_menu_links": {
     "readme.md" : { "order": 0, "label" : "Home" },
