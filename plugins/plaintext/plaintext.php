@@ -10,13 +10,7 @@
  * A plugin must define a class named "<plugin-name>Plugin", and you may "redefine" any methods you see
  * in the FirePageController to act as a hook. 
  */
-class plaintextFPPlugin extends FirePagePlugin {
-    public $app;
-
-    public function __construct(FirePageApp $app) {
-        $this->app = $app;
-    }
-    
+class plaintextFPPlugin extends FirePagePlugin {    
     public function process_request(FirePageContext $page, FPView $view): ?FPView {
         if (FirePageUtils::ends_with($page->page_name, '.txt')) {
             header('Content-Type: text/plain');

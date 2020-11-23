@@ -25,30 +25,44 @@ interface FPService {
     function init(): void;
     function destroy(): void;
 }
+
 /** A View is responsible to render an HTML output. */
 interface FPView extends FPService {
     function render(FirePageContext $page): void;
 }
 
 /** 
- * A Plugin is a request processor (or controller). One or more FPPlugin can be chained together with 
- * process_request() method. 
+ * A Plugin is a request processor (or controller). A plugin can also listener and handle event that broadcast by
+ * the application. A plugin construct will pass a instance of the FirePageApp instance.  
  * 
- * An implementation should return $view if you want next chained plugin to continue process. Or 
- * return NULL to stop the process chain.
+ * NOTE: All the plugins' process_request() method are invoked as a chain pipeline as long as it return
+ * a none NULL value.
  */
 interface FPPlugin extends FPService {
+    /** Return $view if to continue next plugin chain, else NULL to stop the chain call. */
     function process_request(FirePageContext $page, FPView $view): ?FPView;
+    /** Return true if processed, else false. */
+    function handle_event($event_name, $params): bool;
 }
 
 /** Simple FPPlugin base class with empty implementation. User Plugin can easily extends this. */
 class FirePagePlugin implements FPPlugin {
+    public FirePageApp $app;
+    
+    public function __construct(FirePageApp $app) {
+        $this->app = $app;
+    }
+
     public function init(): void { 
     }
     public function destroy(): void { 
     }
     public function process_request(FirePageContext $page, FPView $view): ?FPView { 
         return $view;
+    }
+    /** Return true if processed, else false. */
+    function handle_event($event_name, $params): bool {
+        return false;
     }
 }
 
@@ -188,23 +202,27 @@ class FirePageApp {
     }
 
     /**
-     * Invoke action methods defined in plugins/theme. Action methods are methods that gets invoke in plugins
-     * regardless of the result. All plugins on same method will be called.
+     * Invoke an event listener method defined in any of the FPPlugin object instances. 
+     * The method defined in FPPlugin object should be same name as the event listed here. All the method will
      *
-     * Example of methods are "init" and "destroy".
+     * Available events are:
+     *  "after_init" - Arguments: $app (FirePageApp)
+     *  "before_destroy" - Arguments: $app (FirePageApp)
+     *  "before_process_request" - Arguments: $page and $view
+     *  "after_process_request" - Arguments: $page and $view
+     *  "before_view_render" - Arguments: $page and $view
+     *  "after_view_render" Arguments: $page and $view
      *
      * Returns null if no plugins actions has been invoked. Else it will return an array of call result
      * for each method that got called. Each array item is the result of the call.
      */
-    function call_plugins_action($method, ...$args) {        
-        $ret = array();
+    function call_plugins_event_listener($event_name, ...$args) {        
         foreach ($this->plugins as $plugin) {
-            $call_ret = FirePageUtils::call_if_exists($plugin, $method, $args);
-            if ($call_ret[0]) {
-                array_push($ret, $call_ret[1]);
-            }
+            /** @var FPPlugin $plugin */
+            
+            // NOTE: This will not able to spread the $args to the method!
+            $plugin->handle_event($event_name, $args);
         }
-        return count($ret) > 0 ? $ret : null;
     }
 
     /**
@@ -287,11 +305,15 @@ class FirePageApp {
             $plugin->init();
         }
         $this->controller->init();
+        $this->call_plugins_event_listener('after_init', $this);
 
-        // Process request using chained plugins - until first NULL view is returned
+        // Create page context and view class instance
         $page = new FirePageContext($this);
         $viewClass = $this->config->view_class;
         $view = new $viewClass($this);
+        
+        // Process request using chained plugins - until first NULL view is returned
+        $this->call_plugins_event_listener('before_process_request', $page, $view);
         foreach ($this->plugins as $plugin) {
             $view = $plugin->process_request($page, $view);
             if ($view === null) {
@@ -303,6 +325,7 @@ class FirePageApp {
         if ($view !== null) {
             $view = $this->controller->process_request($page, $view);
         }
+        $this->call_plugins_event_listener('after_process_request', $page, $view);
 
         // Process request by theme - custom page look
         if ($view !== null) {
@@ -311,10 +334,13 @@ class FirePageApp {
         
         // If View instance is still not NULL, call the render()        
         if ($view !== null) {
+            $this->call_plugins_event_listener('before_view_render', $page, $view);
             $view->render($page);
+            $this->call_plugins_event_listener('after_view_render', $page, $view);
         }
                 
         // Done process request - destroy all plugins in reverse order
+        $this->call_plugins_event_listener('before_destroy', $this);
         foreach (array_reverse($this->plugins) as $plugin) {
             $plugin->destroy();
         }
@@ -592,7 +618,7 @@ class FirePageController extends FirePagePlugin {
     }
 
     function transform_content(FirePageContext &$page) {
-        $this->app->call_plugins_action('transform_content', $page);
+        $this->app->call_plugins_event_listener('transform_content', $page);
 
         // If it's an empty file, we will show a default empty message
         if (!$page->is_content_transformed) {
