@@ -622,7 +622,7 @@ class FirePageController extends FirePagePlugin {
 
         // If it's an empty file, we will show a default empty message
         if (!$page->is_content_transformed) {
-            if ($page->file_content === '') {
+            if ($page->file_content === null || $page->file_content === '') {
                 $page->file_content = '<i>This page is empty!</i>';
                 $page->is_content_transformed = true;
             } else {
