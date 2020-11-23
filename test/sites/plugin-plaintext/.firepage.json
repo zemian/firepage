@@ -1,4 +1,5 @@
 {
   "root_dir": "test/sites/plugin-plaintext",
+  "file_extension_list": [".html", ".txt", ".json"],
   "plugins": ["plaintext"]
 }

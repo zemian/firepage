@@ -1,0 +1,5 @@
+{
+  "root_dir": "test/sites/plugin-testfoo",
+  "file_extension_list": [".html", ".txt", ".json", ".md"],
+  "plugins": ["testfoo", "markdown", "plaintext"]
+}
