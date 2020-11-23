@@ -519,12 +519,76 @@ class FirePageController extends FirePagePlugin {
         return $menu_links;
     }
     
-    function process_get_request(FirePageContext $page, FPView $view): ?FPView {
+    function process_request_site(FirePageContext $page, FPView $view): ?FPView {
         // Process GET request
         $action = $page->action;
-        $is_admin = $page->is_admin;
+        if ($action === 'page'){
+            $page->file_content = $this->get_file_content($page->page_name);
+
+            // Handle .JSON file specially
+            if (FirePageUtils::ends_with($page->page_name, '.json') && $page->file_content !== null) {
+                header('Content-Type: application/json');
+                echo $page->file_content;
+                return null;
+            }
+
+            // Now handle normal transform if needed.
+            $this->transform_content($page);
+        } else {
+            die("Unknown action=$action");
+        }
         
-        if ($is_admin) {
+        return $view;
+    }
+
+    function process_request_admin(FirePageContext $page, FPView $view): ?FPView {
+        // if password is enabled start session
+        if ($this->is_password_enabled()) {
+            if (!session_start()) {
+                die("Unable to create PHP session!");
+            }
+
+            // If admin session is not set, then force action to be login first.
+            if (!$this->is_logged_in()) {
+                $page->action = "login";
+            }
+        }
+
+        // Process request by HTTP method
+        if (isset($_POST['action'])) {
+            // Process POST request
+            $page->action = $_POST['action'];
+            $action = $page->action;
+            if ($action === 'login_submit') {
+                $password = $_POST['password'];
+                $admin_password = $this->app->config->admin_password;
+
+                $page->form_error = $this->login($password, $admin_password);
+                if ($page->form_error === null) {
+                    $this->redirect($page->controller_url);
+                }
+            } else if ($action === 'new_submit' || $action === 'edit_submit') {
+                $page->page_name = $_POST['page'];
+                $page->file_content = $_POST['file_content'];
+
+                $file = $page->page_name;
+                $file_content = $page->file_content;
+                if ($page->form_error === null) {
+                    $is_exists_check = $action === 'new_submit';
+                    $page->form_error = $this->validate_note_name($file, $is_exists_check);
+                }
+                if ($page->form_error === null) {
+                    $page->form_error = $this->validate_note_content($file_content);
+                }
+                if ($page->form_error === null) {
+                    $this->write($file, $file_content);
+                    $this->redirect($page->controller_url . "page=$file");
+                }
+            } else {
+                die("Unknown post action=$action");
+            }
+        } else {
+            $action = $page->action;
             if ($action === 'new') {
                 $page->page_name = '';
                 $page->file_content = '';
@@ -546,21 +610,6 @@ class FirePageController extends FirePagePlugin {
             } else if ($action === 'page') {
                 $page->file_content = $this->get_file_content($page->page_name);
                 $this->transform_content($page);
-            }
-        } else {
-            // GET - Not Admin Actions
-            if ($action === 'page'){
-                $page->file_content = $this->get_file_content($page->page_name);
-
-                // Handle .JSON file specially
-                if (FirePageUtils::ends_with($page->page_name, '.json') && $page->file_content !== null) {
-                    header('Content-Type: application/json');
-                    echo $page->file_content;
-                    return null;
-                }
-                
-                // Now handle normal transform if needed.
-                $this->transform_content($page);
             } else {
                 die("Unknown action=$action");
             }
@@ -569,62 +618,12 @@ class FirePageController extends FirePagePlugin {
         return $view;
     }
 
-    function process_post_request(FirePageContext $page, FPView $view): ?FPView {
-        // Process POST request
-        $page->action = $_POST['action'];
-        $action = $page->action;
-        if ($action === 'login_submit') {
-            $password = $_POST['password'];
-            $admin_password = $this->app->config->admin_password;
-
-            $page->form_error = $this->login($password, $admin_password);
-            if ($page->form_error === null) {
-                $this->redirect($page->controller_url);
-            }
-        } else if ($action === 'new_submit' || $action === 'edit_submit') {
-            $page->page_name = $_POST['page'];
-            $page->file_content = $_POST['file_content'];
-
-            $file = $page->page_name;
-            $file_content = $page->file_content;
-            if ($page->form_error === null) {
-                $is_exists_check = $action === 'new_submit';
-                $page->form_error = $this->validate_note_name($file, $is_exists_check);
-            }
-            if ($page->form_error === null) {
-                $page->form_error = $this->validate_note_content($file_content);
-            }
-            if ($page->form_error === null) {
-                $this->write($file, $file_content);
-                $this->redirect($page->controller_url . "page=$file");
-            }
-        } else {
-            die("Unknown action=$action");
-        }
-        return $view;
-    }
-
     function process_request(FirePageContext $page, FPView $view): ?FPView {
-        // If this is admin request, and if password is enabled start session
-        if ($page->is_admin && $this->is_password_enabled()) {
-            if (!session_start()) {
-                die("Unable to create PHP session!");
-            }
-
-            // If admin session is not set, then force action to be login first.
-            if (!$this->is_logged_in()) {
-                $page->action = "login";
-            }
+        if ($page->is_admin) {
+            return $this->process_request_admin($page, $view);
         }
         
-        // Process request by HTTP method
-        if (isset($_POST['action'])) {
-            $view = $this->process_post_request($page, $view);
-        } else {
-            $view = $this->process_get_request($page, $view);
-        }
-
-        return $view;
+        return $this->process_request_site($page, $view);
     }
 
     function transform_content(FirePageContext &$page) {
@@ -867,6 +866,7 @@ class FirePageView implements FPView {
         $page = $this->page;
 
         $this->echo_navbar();
+        
         if ($page->is_admin && ($controller->is_password_enabled() && !$controller->is_logged_in())) {
             $this->echo_admin_login();
         } else {
@@ -899,7 +899,6 @@ class FirePageView implements FPView {
     }
 
     function echo_site_content() {
-        $page = $this->page;
         ?>
         <section class="section">
             <div class="columns">
@@ -916,9 +915,7 @@ class FirePageView implements FPView {
         <?php
     }
 
-    function echo_menu_links($menu_links = null) {
-        $page = $this->page;
-        
+    function echo_menu_links($menu_links = null) {        
         if ($menu_links === null) {
             $menu_links = $this->get_menu_links();
         }
@@ -926,6 +923,7 @@ class FirePageView implements FPView {
         echo "<p class='menu-label'>{$menu_links->menu_label}</p>";
         echo "<ul class='menu-list'>";
 
+        $page = $this->page;
         $active_file = $page->page_name;
         $controller_url = $page->controller_url;
         $i = 0; // Use to track last item in loop
@@ -948,18 +946,18 @@ class FirePageView implements FPView {
     }
 
     function echo_navbar_admin() {
-        $controller = $this->app->controller;
         $page = $this->page;
         $title = $this->app->config->title;
+        $home_url = rtrim($this->page->controller_url, '?');
         ?>
         <div class="navbar">
             <div class="navbar-brand">
                 <div class="navbar-item">
-                    <a class="title" href='<?php echo $page->controller_url; ?>'><?php echo $title; ?></a>
+                    <a class="title" href='<?php echo $home_url; ?>'><?php echo $title; ?></a>
                 </div>
             </div>
             <div class="navbar-end">
-                <?php if ($page->is_admin && $page->action === 'page' && (!$controller->is_password_enabled() || $controller->is_logged_in())) { ?>
+                <?php if ($page->action === 'page') { ?>
                     <div class="navbar-item">
                         <a href="<?php echo $page->controller_url; ?>action=edit&page=<?= $page->page_name ?>">EDIT</a>
                     </div>
@@ -973,13 +971,12 @@ class FirePageView implements FPView {
     }
     
     function echo_navbar_site() {
-        $title = $this->app->config->title;
-        $page = $this->page;
+        $home_url = rtrim($this->page->controller_url, '?');
         ?>
         <div class="navbar">
             <div class="navbar-brand">
                 <div class="navbar-item">
-                    <a class="title" href='<?php echo $page->controller_url; ?>'><?php echo $title; ?></a>
+                    <a class="title" href='<?php echo $home_url; ?>'><?php echo $this->app->config->title; ?></a>
                 </div>
             </div>
         </div>
@@ -987,8 +984,7 @@ class FirePageView implements FPView {
     }
     
     function echo_navbar() {
-        $page = $this->page;        
-        if ($page->is_admin) {
+        if ($this->page->is_admin) {
             $this->echo_navbar_admin();
         } else {
             $this->echo_navbar_site();
