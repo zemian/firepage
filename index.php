@@ -72,61 +72,6 @@ class FirePageUtils {
         }
         return [false, null];
     }
-
-    /**
-     * Invoke action methods defined in plugins/theme. Action methods are methods that gets invoke in plugins
-     * regardless of the result. All plugins on same method will be called.
-     *
-     * Example of methods are "init" and "destroy".
-     *
-     * Returns null if no plugins actions has been invoked. Else it will return an array of call result
-     * for each method that got called. Each array item is the result of the call.
-     */
-    static function call_plugins_action($plugins, $method, ...$args) {
-        $ret = array();
-        foreach ($plugins as $plugin) {
-            $call_ret = FirePageUtils::call_if_exists($plugin, $method, $args);
-            if ($call_ret[0]) {
-                array_push($ret, $call_ret[1]);
-            }
-        }
-        return count($ret) > 0 ? $ret : null;
-    }
-
-    /**
-     * Invoke filter methods defined in plugins/theme. Filter methods are one that will call as pipe line
-     * filter chain on all plugins/theme. If one plugin returns NULL, then rest of plugins will stop processing.
-     *
-     * Example of filter method: "process_request".
-     *
-     * Returns null if no plugins actions has been invoked. Else it will return an array with one element
-     * and that's last chained plugin filter method returned value.
-     */
-    static function call_plugins_filter($plugins, $method, ...$args) {
-        $filter_called = false;
-        foreach ($plugins as $plugin) {
-            $call_ret = FirePageUtils::call_if_exists($plugin, $method, $args);
-            if ($call_ret[0]) {
-                $filter_called = true;
-                $args = $call_ret[1];
-                if ($args === null) {
-                    return [null];
-                }
-            }
-        }
-
-        if (!$filter_called) {
-            return null; // Return early if no filter has been called.
-        }
-
-        if ($args !== null) {
-            // Returns the final result from the last plugin/theme filter
-            return [$args];
-        }
-
-        // Return NULL here means there is no methods got invoked by plugins
-        return null;
-    }
 }
 
 /** Nav Link object */
@@ -241,6 +186,39 @@ class FirePageApp {
         return $ret;
     }
 
+    /**
+     * Invoke action methods defined in plugins/theme. Action methods are methods that gets invoke in plugins
+     * regardless of the result. All plugins on same method will be called.
+     *
+     * Example of methods are "init" and "destroy".
+     *
+     * Returns null if no plugins actions has been invoked. Else it will return an array of call result
+     * for each method that got called. Each array item is the result of the call.
+     */
+    function call_plugins_action($method, ...$args) {
+        $plugins = $this->get_combined_plugins(false);
+        $ret = array();
+        foreach ($plugins as $plugin) {
+            $call_ret = FirePageUtils::call_if_exists($plugin, $method, $args);
+            if ($call_ret[0]) {
+                array_push($ret, $call_ret[1]);
+            }
+        }
+        return count($ret) > 0 ? $ret : null;
+    }
+    
+    function get_combined_plugins($include_controller = true) {
+        $combined_plugins = [];
+        if ($include_controller) {
+            array_push($combined_plugins, $this->controller);
+        }
+        $combined_plugins = array_merge($combined_plugins, $this->plugins);
+        if ($this->theme !== null) {
+            array_push($combined_plugins, $this->theme);
+        }
+        return $combined_plugins;
+    }
+
     /** Main entry of app - read config, load plugins, theme and then process requests. */
     function run(): void {
         // Init config
@@ -254,15 +232,9 @@ class FirePageApp {
         $this->plugins = $this->create_plugins();
         $this->theme = $this->create_theme();
         
-        // Hold all plugin list
-        $combined_plugins = [];
-        if ($this->theme !== null) {
-            array_push($combined_plugins, $this->theme);
-        }
-        $combined_plugins = array_merge($combined_plugins, $this->plugins);
-        array_push($combined_plugins, $this->controller);
         
         // Init all plugins
+        $combined_plugins = $this->get_combined_plugins();
         foreach ($combined_plugins as $plugin) {
             $plugin->init();
         }
@@ -523,12 +495,7 @@ class FirePageController extends FirePagePlugin {
                     $page->file_content = '';
                 } else if ($action === 'edit') {
                     // Process GET Edit Form
-                    $file = $page->page_name;
-                    if ($this->exists($file)) {
-                        $page->file_content = $this->read($file);
-                    } else {
-                        $page->file_content = "File not found: $file";
-                    }
+                    $page->file_content = $this->get_file_content($page->page_name);
                 } else if ($action === 'delete-confirmed') {
                     // Process GET - DELETE file
                     $file = $page->page_name;
@@ -542,25 +509,26 @@ class FirePageController extends FirePagePlugin {
                     $this->logout();
                     $this->redirect($page->controller_url);
                 } else if ($action === 'page') {
-                    $content = $this->get_file_content($page->page_name);
-                    $page->file_content = $this->transform_content($page->page_name, $content);
+                    $page->file_content = $this->get_file_content($page->page_name);
+                    $this->transform_content($page);
                 }
             } else {
                 // GET - Not Admin Actions
                 if ($action === 'page'){
-                    $content = $this->get_file_content($page->page_name);
-                    $page->file_content = $this->transform_content($page->page_name, $content);
+                    $page->file_content = $this->get_file_content($page->page_name);
+
+                    // Do not provide any view object for .json file
+                    if (FirePageUtils::ends_with($page->page_name, '.json')) {
+                        header('Content-Type: application/json');
+                        echo $page->file_content;
+                        return null;
+                    }
+                    
+                    $this->transform_content($page);
                 } else {
                     die("Unknown action=$action");
                 }
             }
-        }
-
-        // Do not provide any view object for .json file
-        if (FirePageUtils::ends_with($page->page_name, '.json')) {
-            header('Content-Type: application/json');
-            echo $page->file_content;
-            return null;
         }
 
         // Now return normal view object
@@ -625,31 +593,21 @@ class FirePageController extends FirePagePlugin {
         return $view;
     }
 
-    function transform_content($file, $content) {
-        // Both HTML and .json files, we will will not transform.
-        if (FirePageUtils::ends_with($file, '.html') || FirePageUtils::ends_with($file, '.json')) {
-            // Do nothing
-        } else {
-            // If it's an empty file, we will show a default empty message
-            if ($content === '') {
-                $content = '<i>This page is empty!</i>';
-            }
+    function transform_content(FirePageContext &$page) {
+        $this->app->call_plugins_action('transform_content', $page);
 
-            // All other file types will escape HTML and serve as pre-formatted text
-            $content = '<pre>' . htmlentities($content) . '</pre>';
+        // If it's an empty file, we will show a default empty message
+        if ($page->file_content === '') {
+            $page->file_content = '<i>This page is empty!</i>';
         }
-
-        return $content;
     }
     
     function get_file_content($file) {
         if($this->exists($file) &&
             $this->validate_note_name($file, false) === null) {
-            $content = $this->read($file);
-            return $content;
-        } else {
-            return "File not found: $file";
+            return $this->read($file);
         }
+        return null;
     }
 
     function is_file_excluded($dir_file) {
@@ -1026,7 +984,7 @@ class FirePageView implements FPView {
                         </div>
                     <?php } else if ($page->action === 'page') { ?>
                         <div class="content">
-                            <?php echo $page->file_content; ?>
+                            <?php echo $this->get_content($page->file_content); ?>
                         </div>
                     <?php } else { ?>
                         <div class="message is-warning">
@@ -1076,6 +1034,10 @@ class FirePageView implements FPView {
         <?php
     }
     
+    function get_content($content) {
+        return $content ?? '<p class="has-text-danger">File not found!</p>';
+    }
+    
     function echo_page_content() {
         $page = $this->page;
         ?>
@@ -1086,7 +1048,7 @@ class FirePageView implements FPView {
                 </div>
                 <div class="column is-9">
                     <div class="content">
-                        <?php echo $page->file_content; ?>
+                        <?php echo $this->get_content($page->file_content); ?>
                     </div>
                 </div>
             </div>

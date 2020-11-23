@@ -10,22 +10,21 @@
  * A plugin must define a class named "<plugin-name>Plugin", and you may "redefine" any methods you see
  * in the FirePageController to act as a hook. 
  */
-class plaintextPlugin {
-    public $controller;
+class plaintextPlugin extends FirePagePlugin {
+    public $app;
 
-    // Note that init() method will receive the FirePageController instance
-    public function init($controller) {
-        $this->controller = $controller;
+    public function __construct(FirePageApp $app) {
+        $this->app = $app;
     }
-
-    // We will override process_request() as filter chain
-    function process_request($page) {
+    
+    public function process_request(FirePageContext $page, FPView $view): ?FPView {
         if (FirePageUtils::ends_with($page->page_name, '.txt')) {
             header('Content-Type: text/plain');
-            echo $this->controller->get_file_content($page->page_name);
+            echo $this->app->controller->get_file_content($page->page_name);
             return null;
         }
-        // Ensure next plugin or the default controller will continue
-        return $page;
+        
+        // Return view object to be process as normal
+        return $view;
     }
 }
