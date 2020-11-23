@@ -1,7 +1,6 @@
 {
   "root_dir": "test/sites/theme-offline",
   "title": "Offline Theme Test",
-  "file_extension_list": [".md", ".json"],
   "theme": "bulma-offline",
-  "controller_class": "BulmaOfflineController"
+  "view_class": "BulmaOfflineView"
 }
