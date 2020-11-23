@@ -7,7 +7,7 @@
  * Author: Zemian Deng
  */
 
-class BulmaOfflineFPView extends FirePageView {
+class BulmaFPView extends FirePageView {
     public function echo_header_scripts() {
         $page = $this->page;
         ?>

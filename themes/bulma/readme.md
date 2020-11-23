@@ -1,6 +1,6 @@
 # bulma-offline
 
-A FirePage theme to support Offline UI styling
+A FirePage theme to support Offline Bulma UI styling
 
 * Project Home: https://github.com/zemian/firepage
 * Project Owner: Zemian Deng
