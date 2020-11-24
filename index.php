@@ -965,41 +965,48 @@ class FirePageView implements FPView {
         <?php
     }
 
-    function echo_menu_links($menu_links = null) {        
+    function echo_menu_links(FirePageMenuLinks $menu_links = null) {        
         if ($menu_links === null) {
             // Default menu links is from page data, else it's a recursive from sub menu
             $menu_links = $this->page->menu_links;
         }
-        
-        echo "<p class='menu-label'>{$menu_links->menu_label}</p>";
-        echo "<ul class='menu-list'>";
 
-        $page = $this->page;
-        $active_file = $page->page_name;
-        $controller_url = $page->controller_url;
-        $i = 0; // Use to track last item in loop
-        $files_len = count($menu_links->links);
-        foreach ($menu_links->links as $link) {
+        if ($menu_links->menu_label !== '') {
+            echo "<p class='menu-label'>{$menu_links->menu_label}</p>";
+        }
+
+        echo "<ul class='menu-list'>";
+        $this->echo_menu_links_items($menu_links->links, $this->page->controller_url, $this->page->page_name);
+        foreach ($menu_links->child_menu_links as $child_item) {
+            $this->echo_menu_links_as_sublist($child_item);
+        }
+        echo "</ul>";
+    }
+    
+    function echo_menu_links_items($links, $controller_url, $active_file) {
+        foreach ($links as $link) {
             $url = $link->url;
             $page_name = $link->page;
             if ($url === null && $page_name !== null) {
                 $url = $controller_url . "page=" . $page_name;
             }
             $is_active = ($page_name === $active_file) ? "is-active": "";
-            echo "<li><a class='$is_active' href='$url'>$link->label</a>";
-            if ($i++ < ($files_len - 1)) {
-                echo "</li>"; // We close all <li> except last one so Bulma menu list can be nested
-            }
+            echo "<li><a class='$is_active' href='$url'>$link->label</a></li>";
         }
-        
-        // Recurse into sub menu
-        foreach ($menu_links->child_menu_links as $child_menu_links_item) {
-            $this->echo_menu_links($child_menu_links_item);
+    }
+
+    function echo_menu_links_as_sublist(FirePageMenuLinks $menu_links) {        
+        echo "<li>";
+        echo "<a>{$menu_links->menu_label}</a>";
+        echo "<ul>";
+        $this->echo_menu_links_items($menu_links->links, $this->page->controller_url, $this->page->page_name);
+
+        // Recurse into sub $menu_links
+        foreach ($menu_links->child_menu_links as $child_item) {
+            $this->echo_menu_links_as_sublist($child_item);
         }
-        
-        // Print Last menu list tag
-        echo "</li>";
         echo "</ul>";
+        echo "</li>";
     }
 
     function echo_navbar_admin() {
