@@ -24,3 +24,7 @@ You can extend it using `plugins` or customize the looks with `themes`.
 
 * [User Guide](docs/user-guide.md)
 * [Developer Guide](docs/developer-guide.md)
+
+## Logo Design
+
+* The FirePage logo is created from https://www.freelogodesign.org
