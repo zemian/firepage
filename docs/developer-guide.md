@@ -55,26 +55,27 @@ Note that one or more plugin may be activated per application.
 
 ### Event and Callback Handling
 
-A plugin can also handle event callback from the application.
+A plugin can also handle event callback from the application by implementing the 
+`handle_event($event_name, $params): bool` method. Return `true` if a event has been processed.
 
 The following events are available:
 
-* `after_init` - Arguments: `$app`. 
+* `after_init` - Params: `$app`. 
   Event is sent after all plugins and main controller has been initialized.
-* `before_destroy` - Arguments: `$app`. 
+* `before_destroy` - Params: `$app`. 
   Event is sent before destroying all plugins and main controller.
-* `before_process_request` - Arguments: `$page` and `$view`. 
+* `before_process_request` - Params: `$page` and `$view`. 
   Event is sent before all plugins and main controller execute their `process_request()` method.
-* `after_process_request` - Arguments: `$page` and `$view`. 
+* `after_process_request` - Params: `$page` and `$view`. 
   Event is sent after all plugins and main controller execute their `process_request()` method.
-* `before_view_render` - Arguments: `$page` and `$view`. 
+* `before_view_render` - Params: `$page` and `$view`. 
   Event is sent before the final View object is execute it `render()` method.
-* `after_view_render` Arguments: `$page` and `$view`. 
+* `after_view_render` Params: `$page` and `$view`. 
   Event is sent after the final View object is execute it `render()` method.
 
 The main controller `FirePageController` also sends the following events if it gets to process the request:
 
-* `transform_content` - Arguments: `$page`. 
+* `transform_content` - Params: `$page`.
   Event is sent after the file content is fetched. The content string is stored in `$page->file_content`. 
   If plugin decided to transform the content, it needs to set `$page->is_content_transformed` flag to `true`.
 
