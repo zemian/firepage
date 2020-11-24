@@ -4,6 +4,8 @@ The `index.php` is a MVC based application. It process a HTTP request using a Co
 it will generate a page context Model that holds data information. And then finally it uses a View class to render
 the page context model data onto a UI output page.
 
+## FirePage Classes and Interfaces
+
 It has few important classes and interfaces that you may use to extend the application.
 
 * `FirePageController` - This is the main Controller that process request for the application. Note that you can
@@ -51,6 +53,8 @@ receive an instance of the `FirePageApp` object.
 
 Note that one or more plugin may be activated per application.
 
+### Event and Callback Handling
+
 A plugin can also handle event callback from the application.
 
 The following events are available:
@@ -82,6 +86,8 @@ can also define a plugin class that process the request named `<theme_name>FPPlu
 have optional PHP scripts that replace a View class.
 
 Note that only one theme can be activated per application.
+
+### Customizing Page
 
 If the following PHP file exists, it will be used to render the UI output instead of using the default 
 `FirePageView` class. It will search in the order it specified here and stop searching when first one is found.
