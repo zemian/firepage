@@ -61,7 +61,10 @@ class DocsFPView extends FirePageView {
         ?>
         <section class="section">
             <div class="columns">
-                <div class="column is-3 menu">
+                <div class="column is-3">
+                    <div class="menu menu-list">
+                        <?php echo $this->page->file_content_toc ?? ''; ?>
+                    </div>
                 </div>
                 <div class="column is-9">
                     <div class="content" style="min-height: 60vh;">
