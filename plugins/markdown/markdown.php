@@ -40,7 +40,7 @@ class markdownFPPlugin extends FirePagePlugin {
     function transform_content(FirePageContext $page) {
         $file = $page->page_name;
         foreach (self::MD_EXTS as $ext) {
-            if (FirePageUtils::ends_with($file, $ext)) {
+            if (FirePageUtils::ends_with($file, $ext) && $page->file_content !== null) {
                 $page->file_content = $this->convert_to_markdown($page->file_content, $page);
                 $page->is_content_transformed = true;
                 return true;
