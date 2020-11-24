@@ -10,3 +10,4 @@ A FirePage plugin to support Markdown files.
 
 * [parsedown](https://github.com/erusev/parsedown) A PHP parser to render Markdown file.
 * [parsedown-extra](https://github.com/erusev/parsedown-extra) Support Markdown extra features.
+* [parsedown-toc](https://github.com/KEINOS/parsedown-extension_table-of-contents) Support Markdown Table of Content (TOC).

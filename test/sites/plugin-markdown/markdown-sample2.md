@@ -1,7 +1,5 @@
 # Markdown syntax guide
 
-[toc]
-
 ## Headers
 
 # This is a Heading h1

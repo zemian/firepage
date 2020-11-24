@@ -950,8 +950,10 @@ class FirePageView implements FPView {
         ?>
         <section class="section">
             <div class="columns">
-                <div class="column is-3 menu">
-                    <?php $this->echo_menu_links(); ?>
+                <div class="column is-3">
+                    <div class="menu">
+                        <?php $this->echo_menu_links(); ?>
+                    </div>
                 </div>
                 <div class="column is-9">
                     <div class="content" style="min-height: 60vh;">
@@ -1077,19 +1079,21 @@ class FirePageView implements FPView {
         ?>
         <section class="section">
             <div class="columns">
-                <div class="column is-3 menu">
-                    <p class="menu-label">Admin</p>
-                    <ul class="menu-list">
-                        <li><a href='<?php echo $page->controller_url; ?>action=new'>New</a></li>
-
-                        <?php if ($controller->is_logged_in()) { ?>
-                            <li><a href='<?php echo $page->controller_url . "action=logout"; ?>'>Logout</a></li>
-                        <?php } else { ?>
-                            <li><a href='<?php echo $page->url_path; ?>'>Exit</a></li>
-                        <?php } ?>
-                    </ul>
-
-                    <?php $this->echo_menu_links(); ?>
+                <div class="column is-3">
+                    <div class="menu">
+                        <p class="menu-label">Admin</p>
+                        <ul class="menu-list">
+                            <li><a href='<?php echo $page->controller_url; ?>action=new'>New</a></li>
+    
+                            <?php if ($controller->is_logged_in()) { ?>
+                                <li><a href='<?php echo $page->controller_url . "action=logout"; ?>'>Logout</a></li>
+                            <?php } else { ?>
+                                <li><a href='<?php echo $page->url_path; ?>'>Exit</a></li>
+                            <?php } ?>
+                        </ul>
+    
+                        <?php $this->echo_menu_links(); ?>
+                    </div>
                 </div>
                 <div class="column is-9">
                     <?php if ($page->action === 'new' || $page->action === 'new_submit') { ?>
