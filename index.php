@@ -12,7 +12,7 @@
 //
 
 // Global Vars
-define('FIREPAGE_VERSION', '1.0.0-SNAPSHOT');
+define('FIREPAGE_VERSION', '0.1.0-SNAPSHOT');
 define('FIREPAGE_CONFIG_ENV_KEY', 'FIREPAGE_CONFIG');
 define('FIREPAGE_CONFIG_NAME', '.firepage.json');
 define('FIREPAGE_DEAFULT_ROOT_DIR', __DIR__);
@@ -240,13 +240,7 @@ class FirePageApp {
      * Invoke an event listener method defined in any of the FPPlugin object instances. 
      * The method defined in FPPlugin object should be same name as the event listed here. All the method will
      *
-     * Available events are:
-     *  "after_init" - Arguments: $app (FirePageApp)
-     *  "before_destroy" - Arguments: $app (FirePageApp)
-     *  "before_process_request" - Arguments: $page and $view
-     *  "after_process_request" - Arguments: $page and $view
-     *  "before_view_render" - Arguments: $page and $view
-     *  "after_view_render" Arguments: $page and $view
+     * See docs/developer-guild.md for list of all events available.
      *
      * Returns null if no plugins actions has been invoked. Else it will return an array of call result
      * for each method that got called. Each array item is the result of the call.
