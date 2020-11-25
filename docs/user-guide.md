@@ -98,6 +98,8 @@ All of the config parameters are optional, and it has a default value set if you
 
 Below listed config parameters will have a default values of `NULL` value in the code if they are omitted in 
 the configuration file.
+
+* "logo_url": Set a image url for your site logo. It will be displayed on the top navbar.
   
 * "files_to_menu_links": Remap file or dir name in a auto generated menu_links with a better label
   sort menu differently, or even hide it completely. If `hide` attribute is set to true, then it will 
