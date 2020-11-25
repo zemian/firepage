@@ -9,5 +9,6 @@
   "plugins": ["markdown"],
   "file_extension_list": [".html", ".txt", ".json", ".md"],
   "exclude_file_list": ["plugins", "themes", "admin-home.html", "exclude-me-test", "do-not-use-me.json"],
-  "pretty_file_to_label": false
+  "pretty_file_to_label": false,
+  "logo_url": "https://raw.githubusercontent.com/zemian/firepage/main/firepage-icontext.png"
 }

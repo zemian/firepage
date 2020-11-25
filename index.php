@@ -157,6 +157,7 @@ class FirePageConfig {
     public bool $disable_admin = false;
     public ?string $theme = null;
     public ?array $plugins = null;
+    public ?string $logo_url = null;
 
     public function __construct(?array $config = null) {
         // Override config parameters if given
@@ -1002,16 +1003,27 @@ class FirePageView implements FPView {
         echo "</ul>";
         echo "</li>";
     }
+    
+    function echo_navbar_logo() {
+        ?>
+        <a class="navbar-item" href='<?php echo $this->page->url_path; ?>'>
+            <?php if ($this->app->config->logo_url !== null) { ?>
+                <img src="<?php echo $this->app->config->logo_url; ?>"
+                     width="100" height="28"
+                     alt="<?php echo $this->app->config->title; ?>">
+            <?php } else { ?>
+                <span class="title"><?php echo $this->app->config->title; ?></span>
+            <?php } ?>
+        </a>
+        <?php        
+    }
 
     function echo_navbar_admin() {
         $page = $this->page;
-        $title = $this->app->config->title;
         ?>
         <div class="navbar">
             <div class="navbar-brand">
-                <div class="navbar-item">
-                    <a class="title" href='<?php echo $this->page->url_path; ?>'><?php echo $title; ?></a>
-                </div>
+                <?php $this->echo_navbar_logo() ?>
             </div>
             <div class="navbar-end">
                 <?php if ($page->action === 'page') { ?>
@@ -1031,9 +1043,7 @@ class FirePageView implements FPView {
         ?>
         <div class="navbar">
             <div class="navbar-brand">
-                <div class="navbar-item">
-                    <a class="title" href='<?php echo $this->page->url_path; ?>'><?php echo $this->app->config->title; ?></a>
-                </div>
+                <?php $this->echo_navbar_logo() ?>
             </div>
         </div>
         <?php
