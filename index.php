@@ -264,7 +264,7 @@ class FirePageApp {
      *
      * NOTE: The $page argument is passed by ref and it's modifiable.
      */
-    function process_theme_request(FirePageContext &$page, FPView $view): ?FPView {
+    function process_theme_request(FirePageContext $page, FPView $view): ?FPView {
         $theme = $this->config->theme;
         if ($theme === null) {
             return $view;
@@ -467,7 +467,7 @@ class FirePageController extends FirePagePlugin {
     }
 
     /** Sort menu links according to the "order" property. */
-    function sort_menu_links(FirePageMenuLinks &$menu_links) {
+    function sort_menu_links(FirePageMenuLinks $menu_links) {
         usort($menu_links->links, function ($a, $b) {
             $ret = $a->order <=> $b->order;
             if ($ret === 0) {
@@ -488,13 +488,13 @@ class FirePageController extends FirePagePlugin {
     }
 
     /** Remap a FirePageMenuLinks to one given in config parameters. Allow user override. */
-    function remap_menu_links(FirePageMenuLinks &$menu_link) {
+    function remap_menu_links(FirePageMenuLinks $menu_link) {
         $map = $this->app->config->files_to_menu_links;
         if ($map === null) {
             return;
         }
         
-        foreach ($menu_link->links as $idx => &$link) {
+        foreach ($menu_link->links as $idx => $link) {
             $page_name = $link->page;
             if (array_key_exists($page_name, $map)) {
                 $new_link = $map[$page_name];
@@ -506,7 +506,7 @@ class FirePageController extends FirePagePlugin {
             }
         }
 
-        foreach ($menu_link->child_menu_links as $idx => &$child_menu_links_item) {
+        foreach ($menu_link->child_menu_links as $idx => $child_menu_links_item) {
             $menu_dir = $child_menu_links_item->menu_dir;
             if (array_key_exists($menu_dir, $map) && isset($map[$menu_dir]['hide'])) {
                 unset($menu_link->child_menu_links[$idx]);
@@ -653,11 +653,10 @@ class FirePageController extends FirePagePlugin {
             } else if ($action === 'delete-confirmed') {
                 // Process GET - DELETE file
                 $file = $page->page_name;
-                $delete_status = &$page->delete_status; // Use Ref
                 if ($this->delete($file)) {
-                    $delete_status = "File $file deleted";
+                    $page->delete_status = "File $file deleted";
                 } else {
-                    $delete_status = "File not found: $file";
+                    $page->delete_status = "File not found: $file";
                 }
             } else if ($action === 'logout') {
                 $this->logout();
@@ -690,7 +689,7 @@ class FirePageController extends FirePagePlugin {
         return $view;
     }
 
-    function transform_content(FirePageContext &$page) {
+    function transform_content(FirePageContext $page) {
         // Plugin should set $page->is_content_transformed flag if it has handled the content transformation
         $this->app->call_plugins_event_listener('transform_content', $page);
 
